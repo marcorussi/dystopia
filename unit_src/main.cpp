@@ -27,6 +27,10 @@
 #include <memory>
 #include <initializer_list>
 
+#include <functional>
+#include <chrono>
+#include <future>
+
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Easy.hpp>
 #include <curlpp/Options.hpp>
@@ -36,7 +40,7 @@
 #include "json11.h"
 
 //#define MAX_NUM_OF_AVAILABLE_UNITS		5
-#define MAX_NUM_OF_COMMANDS				7
+#define MAX_NUM_OF_COMMANDS				8
 
 #define PUBLISH_DWEET_URL_STRING			"https://dweet.io:443/dweet/for/"
 #define GET_CMD_DWEET_URL_STRING			"https://dweet.io:443/get/dweets/for/"
@@ -55,6 +59,77 @@
 
 
 using namespace std;
+
+
+class CallBackTimer
+{
+public:
+    CallBackTimer()
+    :_execute(false)
+    {}
+
+    ~CallBackTimer() {
+        if( _execute.load(std::memory_order_acquire) ) {
+            stop();
+        };
+    }
+
+    void stop()
+    {
+        _execute.store(false, std::memory_order_release);
+        if( _thd.joinable() )
+            _thd.join();
+    }
+
+    void start(int interval, std::function<void(void)> func)
+    {
+        if( _execute.load(std::memory_order_acquire) ) {
+            stop();
+        };
+        _execute.store(true, std::memory_order_release);
+        _thd = std::thread([this, interval, func]()
+        {
+            while (_execute.load(std::memory_order_acquire)) {
+                func();                   
+                std::this_thread::sleep_for(
+                std::chrono::milliseconds(interval));
+            }
+        });
+    }
+
+    bool is_running() const noexcept {
+        return ( _execute.load(std::memory_order_acquire) && 
+                 _thd.joinable() );
+    }
+
+private:
+    std::atomic<bool> _execute;
+    std::thread _thd;
+};
+
+
+class later
+{
+	public:
+		template <class callable, class... arguments>
+		later(int after, bool async, callable&& f, arguments&&... args)
+		{
+			std::function<typename std::result_of<callable(arguments...)>::type()> task(std::bind(std::forward<callable>(f), std::forward<arguments>(args)...));
+
+			if (async)
+			{
+				std::thread([after, task]() {
+					std::this_thread::sleep_for(std::chrono::milliseconds(after));
+					task();
+				}).detach();
+			}
+			else
+			{
+				std::this_thread::sleep_for(std::chrono::milliseconds(after));
+			task();
+		}
+	}
+};
 
 
 class UnitSim
@@ -133,6 +208,7 @@ string cmd_list[MAX_NUM_OF_COMMANDS] =
 	"sd",
 	"cg",
 	"ds",
+	"ac",
 	"en"
 };
 
@@ -145,6 +221,10 @@ vector<cmd_st> latest_cmds;
 //UnitSim units_sim[MAX_NUM_OF_AVAILABLE_UNITS];
 /* ATTENTION: this istance must be after cmd and data vectors instances */
 UnitSim units_sim;
+
+
+
+
 
 
 /* ATTENTION: only one unit used at the moment */
@@ -175,6 +255,7 @@ UnitSim::~UnitSim()
 
 
 /* Local functions prototypes */
+void 			executeCommand						( cmd_st * );
 int			getCmdIndex							( string );
 int 			convertStrNum						( string );
 bool 			parseJsonCheckDweetSucceded	( string );
@@ -185,6 +266,15 @@ bool 			parseJsonGetCmds					( string, string );
 void 			showLatestCmds						( void );
 void 			showDataValues						( void );
 bool			setAndPublishDataValue			( int, string );
+void 			auto_cmd_cb_func					( void );
+
+
+
+
+void auto_cmd_cb_func(void)
+{
+	cout << "__AUTO CMD CHECK FUNCTION__" << endl;
+}
 
 
 int convertStrNum(string num_str)
@@ -198,6 +288,25 @@ int convertStrNum(string num_str)
 	conv_stream.clear();
 
 	return num;
+}
+
+
+void executeCommand(cmd_st *command)
+{
+	int i;
+
+	/* print command info */
+	cout << endl << "---------------------------------" << endl;
+	cout << "COMMAND INFO: " << endl;
+	cout << "Sender ID: " << command->sender_uid << endl;
+	cout << "Sender Name: " << command->sender_name << endl;
+	cout << "Priority: " << command->priority << endl;
+
+	/* print commands and their values */
+	for(i = 0; i < command->cmd_keys.size(); i++)
+	{
+		cout << " - " << command->cmd_keys[i] << " : " << command->cmd_strings[i] << endl;
+	}
 }
 
 
@@ -216,6 +325,11 @@ int main(int argc, char *argv[])
 	volatile bool end_prog = false;
 	string input, cmd_str;
 	int cmd_index;
+	bool auto_cmd_running = false;
+
+	//later later_test1(4000, true, &test1);
+
+	CallBackTimer auto_cmd_cb;	
 
 	while(end_prog != true)
 	{
@@ -247,36 +361,36 @@ int main(int argc, char *argv[])
 					cout << "Online error!" << endl;
 					error = 1;
 				}
-				break;
 			}
+			break;
 			case 1:	//si
 			{
 				showUnitInfo();
-				break;
 			}
+			break;
 			case 2:	//sc
 			{
 				showLatestCmds();
-				break;
 			}
+			break;
 			case 3:	//sd
 			{
 				showDataValues();
-				break;
 			}
+			break;
 			case 4:	//"cg"
 			{
 				/* delete previous commands before getting new ones */
 				latest_cmds.clear();
 				if(true == getLatestCommands())
 				{
-					//for(int i=0; i<latest_cmds.size(); i++)
-					//{
-					//	executeCommand(latest_cmds(i));
-					//}
+					for(int i=0; i<latest_cmds.size(); i++)
+					{
+						executeCommand(&latest_cmds[i]);
+					}
 				}
-				break;
 			}
+			break;
 			case 5:	//"ds"
 			{
 				int d;
@@ -289,14 +403,44 @@ int main(int argc, char *argv[])
 					cout << "Parameters error!" << endl;
 					error = 1;
 				}
-				break;
 			}
-			case 6:	//"en"
+			break;
+			case 6:
+			{
+				string p;
+				p = input.substr(3);	
+				if(p == "on")
+				{
+					/* check if already running */
+					if(false == auto_cmd_running)
+					{
+						cout << "--Start Auto command check" << endl;
+						auto_cmd_cb.start(2000, &auto_cmd_cb_func);
+						auto_cmd_running = true;
+					}
+					else
+					{
+						/* do nothing */
+					}
+				}
+				else if(p == "off")
+				{
+					cout << "--Stop Auto command check" << endl;
+					auto_cmd_cb.stop();
+					auto_cmd_running = false;
+				}
+				else
+				{
+					cout << "Parameter error!" << endl;
+					error = 1;
+				}					
+			}
+			break;
+			case 7:	//"en"
 			{
 				end_prog = true;
-				break;
 			}
-			
+			break;
 			default:
 			{
 				/* invalid command: the getCmdIndex() function has returned MAX_NUM_OF_COMMANDS value */
