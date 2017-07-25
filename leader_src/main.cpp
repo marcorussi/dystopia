@@ -95,9 +95,11 @@ class Unit
 		void setCmd(string n) { cmd.push_back(n); }
 		string getCmd(int i) { return cmd.at(i); }
 		int getNumOfCmds() { return cmd.size(); }
+		void clearCmds() { return cmd.clear(); }
 		void setData(string n) { data.push_back(n); }
 		string getData(int i) { return data.at(i); }
 		int getNumOfDatas() { return data.size(); }
+		void clearDatas() { return data.clear(); }
 } ;
 
 
@@ -591,6 +593,10 @@ int parseJsonGetUnits( string json_to_parse, string thing_to_find )
 											&& (true == obj4.has("cmd"))
 											&& (true == obj4.has("data")))
 											{
+												/* clear cmd and data arrays */
+												units[units_count].clearCmds();
+												units[units_count].clearDatas();
+
 												/* store and show unit info */
 												units[units_count].setIndex(units_count);
 												units[units_count].setOnlineFoundFlag(true);

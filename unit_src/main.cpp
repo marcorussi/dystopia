@@ -42,6 +42,9 @@
 //#define MAX_NUM_OF_AVAILABLE_UNITS		5
 #define MAX_NUM_OF_COMMANDS				8
 
+/* Commands auto check period in ms */
+#define CMD_AUTO_CHECK_PERIOD_MS			30000
+
 #define PUBLISH_DWEET_URL_STRING			"https://dweet.io:443/dweet/for/"
 #define GET_CMD_DWEET_URL_STRING			"https://dweet.io:443/get/dweets/for/"
 
@@ -178,6 +181,7 @@ typedef struct
 	string sender_uid;
 	string sender_name;
 	string priority;
+	string date;
 	vector<string> cmd_keys;
 	vector<string> cmd_strings;
 } cmd_st;
@@ -217,14 +221,27 @@ string cmd_list[MAX_NUM_OF_COMMANDS] =
 vector<cmd_st> latest_cmds;
 
 
+/* store newest command date */
+string newest_cmd_date = "";
+
+
+/* Indicate if auto command check is enabled */
+bool auto_cmd_running = false;
+
+
+/* Indicate when a command auto check request is ready to go
+	ATTENTION: Start as false. A first call will be executed anyway when the callack is enabled */
+volatile bool auto_cmd_go = false;
+
+
+/* Store periodic callback info */
+CallBackTimer auto_cmd_cb;	
+
+
 /* ATTENTION: only one unit used at the moment */
 //UnitSim units_sim[MAX_NUM_OF_AVAILABLE_UNITS];
 /* ATTENTION: this istance must be after cmd and data vectors instances */
 UnitSim units_sim;
-
-
-
-
 
 
 /* ATTENTION: only one unit used at the moment */
@@ -255,14 +272,16 @@ UnitSim::~UnitSim()
 
 
 /* Local functions prototypes */
+bool 			getCliCmdAndExecuteIt			( void );
 void 			executeCommand						( cmd_st * );
 int			getCmdIndex							( string );
 int 			convertStrNum						( string );
 bool 			parseJsonCheckDweetSucceded	( string );
 bool 			publishUnitOnline					( void );
 void 			showUnitInfo						( void );
+void 			getAndManageNewCommands			( void );
 bool			getLatestCommands					( void );
-bool 			parseJsonGetCmds					( string, string );
+bool 			parseJsonGetCmds					( string, string, string );
 void 			showLatestCmds						( void );
 void 			showDataValues						( void );
 bool			setAndPublishDataValue			( int, string );
@@ -274,6 +293,17 @@ void 			auto_cmd_cb_func					( void );
 void auto_cmd_cb_func(void)
 {
 	cout << "__AUTO CMD CHECK FUNCTION__" << endl;
+
+	/* if no previous requests are pending */
+	if(false == auto_cmd_go)
+	{
+		/* set flag; command auto check is ready to go */
+		auto_cmd_go = true;
+	}
+	else
+	{
+		/* do nothing */
+	}
 }
 
 
@@ -321,141 +351,165 @@ int main(int argc, char *argv[])
 
 	char *url = argv[1];
 */
-	int error = 0;
-	volatile bool end_prog = false;
-	string input, cmd_str;
-	int cmd_index;
-	bool auto_cmd_running = false;
-
+	bool end_prog = false;
+	
 	//later later_test1(4000, true, &test1);
-
-	CallBackTimer auto_cmd_cb;	
 
 	while(end_prog != true)
 	{
-		error = 0;
-		cout << "Available commands:" << endl 
-		<< "pu: publish unit online" << endl 
-		<< "si: show unit info" << endl 
-		<< "sc: show latest received commands" << endl 
-		<< "sd: show unit data" << endl 
-		<< "cg: get latest commands" << endl
-		<< "ds [d] [v]: set data value [d=data index] [v=data value]" << endl
-		<< "en: end of program" << endl;
-
-		cout << "Insert command:";
-		getline(cin, input);
-		cmd_str = input.substr(0, 2);
-
-		cout << "__full command:" << input << endl;
-		cout << "__command:" << cmd_str << endl;
-
-		cmd_index = getCmdIndex(cmd_str);
-
-		switch(cmd_index)
+		/* if command auto check is enabled and ready to go */
+		if(true == auto_cmd_running)
 		{
-			case 0:	//"pu"
+			if(true == auto_cmd_go)
 			{
-				if(false == publishUnitOnline())
-				{
-					cout << "Online error!" << endl;
-					error = 1;
-				}
+				/* get and manage new commands */
+				getAndManageNewCommands();
+				/* clear flag */
+				auto_cmd_go = false;
 			}
-			break;
-			case 1:	//si
+			else
 			{
-				showUnitInfo();
+				/* wait... */
 			}
-			break;
-			case 2:	//sc
-			{
-				showLatestCmds();
-			}
-			break;
-			case 3:	//sd
-			{
-				showDataValues();
-			}
-			break;
-			case 4:	//"cg"
-			{
-				/* delete previous commands before getting new ones */
-				latest_cmds.clear();
-				if(true == getLatestCommands())
-				{
-					for(int i=0; i<latest_cmds.size(); i++)
-					{
-						executeCommand(&latest_cmds[i]);
-					}
-				}
-			}
-			break;
-			case 5:	//"ds"
-			{
-				int d;
-				string v;
-				d = convertStrNum(input.substr(3, 1));	/* ATTENTION: erroneous letter values are converted anyway */
-				v = input.substr(5);	
-				cout << "Inserted d: " << d << " - Inserted v: " << v << endl;
-				if(false == setAndPublishDataValue(d, v))
-				{
-					cout << "Parameters error!" << endl;
-					error = 1;
-				}
-			}
-			break;
-			case 6:
-			{
-				string p;
-				p = input.substr(3);	
-				if(p == "on")
-				{
-					/* check if already running */
-					if(false == auto_cmd_running)
-					{
-						cout << "--Start Auto command check" << endl;
-						auto_cmd_cb.start(2000, &auto_cmd_cb_func);
-						auto_cmd_running = true;
-					}
-					else
-					{
-						/* do nothing */
-					}
-				}
-				else if(p == "off")
-				{
-					cout << "--Stop Auto command check" << endl;
-					auto_cmd_cb.stop();
-					auto_cmd_running = false;
-				}
-				else
-				{
-					cout << "Parameter error!" << endl;
-					error = 1;
-				}					
-			}
-			break;
-			case 7:	//"en"
-			{
-				end_prog = true;
-			}
-			break;
-			default:
-			{
-				/* invalid command: the getCmdIndex() function has returned MAX_NUM_OF_COMMANDS value */
-				cerr << "VERTEX: error -> invalid command" << endl;
-				error = 3;
-			}
-		}
 
-		input.clear();
-		cmd_str.clear();
-		
-		(0 == error) ? cout << "_____Command executed_____" << endl << endl << endl : cout << "_____Wrong command_____" << endl << endl << endl;
+			/* nothing else is done at the moment
+				but a timeout mechanism can be implemented */
+		}
+		else
+		{
+			/* wait until cli command input is inserted and execute it */
+			end_prog = getCliCmdAndExecuteIt();
+		}
 	}
 
 	return EXIT_SUCCESS;
+}
+
+
+/* Function to get cli command input and execute it */
+bool getCliCmdAndExecuteIt( void )
+{
+	int error = 0;
+	string input, cmd_str;
+	int cmd_index;
+	volatile bool end = false;
+		
+	cout << "Available commands:" << endl 
+	<< "pu: publish unit online" << endl 
+	<< "si: show unit info" << endl 
+	<< "sc: show latest received commands" << endl 
+	<< "sd: show unit data" << endl 
+	<< "cg: get latest commands" << endl
+	<< "ds [d] [v]: set data value [d=data index] [v=data value]" << endl
+	<< "ac [b]: enable (on) or disable (off) commands auto check" << endl
+	<< "en: end of program" << endl;
+
+	cout << "Insert command:";
+	getline(cin, input);
+	cmd_str = input.substr(0, 2);
+
+	cout << "__full command:" << input << endl;
+	cout << "__command:" << cmd_str << endl;
+
+	cmd_index = getCmdIndex(cmd_str);
+
+	switch(cmd_index)
+	{
+		case 0:	//"pu"
+		{
+			if(false == publishUnitOnline())
+			{
+				cout << "Online error!" << endl;
+				error = 1;
+			}
+		}
+		break;
+		case 1:	//"si"
+		{
+			showUnitInfo();
+		}
+		break;
+		case 2:	//"sc"
+		{
+			showLatestCmds();
+		}
+		break;
+		case 3:	//"sd"
+		{
+			showDataValues();
+		}
+		break;
+		case 4:	//"cg"
+		{
+			/* get and manage new commands */
+			getAndManageNewCommands();
+		}
+		break;
+		case 5:	//"ds"
+		{
+			int d;
+			string v;
+			d = convertStrNum(input.substr(3, 1));	/* ATTENTION: erroneous letter values are converted anyway */
+			v = input.substr(5);	
+			cout << "Inserted d: " << d << " - Inserted v: " << v << endl;
+			if(false == setAndPublishDataValue(d, v))
+			{
+				cout << "Parameters error!" << endl;
+				error = 1;
+			}
+		}
+		break;
+		case 6:	//"ac"
+		{
+			string p;
+			/* ATTENTION: in case of missing parameter the program fails */
+			p = input.substr(3);	
+			if(p == "on")
+			{
+				/* check if already running */
+				if(false == auto_cmd_running)
+				{
+					cout << "--Start Auto command check" << endl;
+					auto_cmd_cb.start(CMD_AUTO_CHECK_PERIOD_MS, &auto_cmd_cb_func);
+					auto_cmd_running = true;
+				}
+				else
+				{
+					/* do nothing */
+				}
+			}
+			else if(p == "off")
+			{
+				cout << "--Stop Auto command check" << endl;
+				auto_cmd_cb.stop();
+				auto_cmd_running = false;
+			}
+			else
+			{
+				cout << "Parameter error!" << endl;
+				error = 1;
+			}					
+		}
+		break;
+		case 7:	//"en"
+		{
+			end = true;
+		}
+		break;
+		default:
+		{
+			/* invalid command: the getCmdIndex() function has returned MAX_NUM_OF_COMMANDS value */
+			cerr << "VERTEX: error -> invalid command" << endl;
+			error = 3;
+		}
+	}
+
+	input.clear();
+	cmd_str.clear();
+	
+	(0 == error) ? cout << "_____Command executed_____" << endl << endl << endl : cout << "_____Wrong command_____ ERROR: " << error << endl << endl << endl;
+
+	return end;
 }
 
 
@@ -614,6 +668,29 @@ bool parseJsonCheckDweetSucceded( string json_to_parse )
 }
 
 
+/* function to get and manage new commands */
+void getAndManageNewCommands( void )
+{
+	/* get new commands */
+	if(true == getLatestCommands())
+	{
+		/* ATTENTION: execution means show commands
+			and it is done immediately */
+		for(int i=0; i<latest_cmds.size(); i++)
+		{
+			executeCommand(&latest_cmds[i]);
+		}
+
+		/* clear stored commands after execution */
+		latest_cmds.clear();
+	}
+	else
+	{
+		cout << "No new commands" << endl;
+	}
+}
+
+
 bool getLatestCommands( void )
 {
 	string url = GET_CMD_DWEET_URL_STRING;
@@ -646,14 +723,17 @@ bool getLatestCommands( void )
 	}
 
 	/* parse Json string */
-	if(false == parseJsonGetCmds(result.str(), units_sim.getCmdUID()))
+	if(false == parseJsonGetCmds(result.str(), units_sim.getCmdUID(), newest_cmd_date))
 		return false;
+
+	/* update last command update by storing the first retrieved command (the newest one) */
+	newest_cmd_date = latest_cmds[0].date;
 
 	return true;
 }
 
 
-bool parseJsonGetCmds( string json_to_parse, string thing_to_find )
+bool parseJsonGetCmds( string json_to_parse, string thing_to_find, string last_cmd_date )
 {
 	string tmp;
 	int i, j;
@@ -688,58 +768,74 @@ bool parseJsonGetCmds( string json_to_parse, string thing_to_find )
 									{
 										string date_str = obj3["created"];
 										cout << "last update: " << date_str << endl;
-
-										obj4 = obj3["content"];
-										if(Json::OBJECT == obj4.type())
+										/* check creation date */
+										if(date_str > last_cmd_date)
 										{
-											if((true == obj4.has("sender_name"))
-											&& (true == obj4.has("sender_uid"))
-											&& (true == obj4.has("priority"))
-											&& (true == obj4.has("cmd")))
+											cmd_st cmdst;
+											cmdst.date = date_str;
+											obj4 = obj3["content"];
+											if(Json::OBJECT == obj4.type())
 											{
-												cmd_st cmdst;
-												/* ATTENTION: UID must be a string else a bad cast error will occur */
-												string str = obj4["sender_uid"];
-												cmdst.sender_uid = str;
-												cout << "_____ - sender_uid: " << str << endl;
-												str.clear();
-
-												str.append(obj4["sender_name"]);
-												cmdst.sender_name = str;
-												cout << "_____ - sender_name: " << str << endl;
-												str.clear();
-
-												str.append(obj4["priority"]);
-												cmdst.priority = str;
-												cout << "_____ - priority: " << str << endl;
-												str.clear();
-
-												cout << "_____ - cmd: " << endl;
-												obj5 = obj4["cmd"];
-												if(Json::OBJECT == obj5.type())	/* ATTENTION: only one command is used at the moment */
+												if((true == obj4.has("sender_name"))
+												&& (true == obj4.has("sender_uid"))
+												&& (true == obj4.has("priority"))
+												&& (true == obj4.has("cmd")))
 												{
-													cmdst.cmd_keys = obj5.keys();
-													for(j=0; j<cmdst.cmd_keys.size(); j++)
+													/* ATTENTION: UID must be a string else a bad cast error will occur */
+													string str = obj4["sender_uid"];
+													cmdst.sender_uid = str;
+													cout << "_____ - sender_uid: " << str << endl;
+													str.clear();
+
+													str.append(obj4["sender_name"]);
+													cmdst.sender_name = str;
+													cout << "_____ - sender_name: " << str << endl;
+													str.clear();
+
+													str.append(obj4["priority"]);
+													cmdst.priority = str;
+													cout << "_____ - priority: " << str << endl;
+													str.clear();
+
+													cout << "_____ - cmd: " << endl;
+													obj5 = obj4["cmd"];
+													if(Json::OBJECT == obj5.type())	/* ATTENTION: only one command is used at the moment */
 													{
-														cmdst.cmd_strings.push_back(obj5[cmdst.cmd_keys[j]]);
-														str.append(cmdst.cmd_keys[j]);
-														str.append(" -> ");
-														str.append(obj5[cmdst.cmd_keys[j]]);
-														cout << "___________ -" << str << endl;
-														str.clear();
+														cmdst.cmd_keys = obj5.keys();
+														for(j=0; j<cmdst.cmd_keys.size(); j++)
+														{
+															cmdst.cmd_strings.push_back(obj5[cmdst.cmd_keys[j]]);
+															str.append(cmdst.cmd_keys[j]);
+															str.append(" -> ");
+															str.append(obj5[cmdst.cmd_keys[j]]);
+															cout << "___________ -" << str << endl;
+															str.clear();
+														}
 													}
-												}
-												else
-												{
-													/* do nothing at the moment */
-												}
+													else
+													{
+														/* do nothing at the moment */
+													}
 
-												/* store sender commands */
-												latest_cmds.push_back(cmdst);
+													/* store sender commands */
+													latest_cmds.push_back(cmdst);
 
-												/* 1 found command at least */
-												ret_bool = true;
+													/* 1 found command at least */
+													ret_bool = true;
+												}
 											}
+											else
+											{
+												/* invalid JSON object. The command has the date only at the moment.
+													TODO: manage this situation. */
+											}
+										}
+										else
+										{
+											/* old command: discard it */
+											/* going further next commands are older 
+												so we can interrupt searching here. */
+											return ret_bool;
 										}
 									}
 								}
