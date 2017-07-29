@@ -21,44 +21,38 @@
 #	SOFTWARE.
 
 
-LINK_TARGET = unit.exe
+BIN_PATH = bin
 
-#CURLPP_PATH := /home/marco/Documents/projects/http_curlpp/curlpp-0.8.1/
+OBJ_PATH = obj
 
 LIB_PATH := /usr/local/lib
 
-OBJS = json11.o dweet.o unit.o main.o 
+LIB_PATHS = -L$(abspath $(LIB_PATH))
+
+BIN = $(BIN_PATH)/unit_demo.exe
+
+OBJS = $(patsubst %.o, $(OBJ_PATH)/%.o ,json11.o dweet.o unit.o main.o)
 
 CXX_FLAGS = -std=c++11
 #-fno-rtti -fno-exceptions
 
 LD_FLAGS = -lcurlpp -lcurl
 
-#CANARY_ARGS = -DJSON11_ENABLE_DR1467_CANARY=0
+REBUILDABLES = $(OBJS) $(BIN)
 
-REBUILDABLES = $(OBJS) $(LINK_TARGET)
 
-#INC_PATHS = -I$(abspath /home/marco/Documents/projects/http_curlpp/json11-master)
-
-LIB_PATHS = -L$(abspath $(LIB_PATH))
-
-all : $(LINK_TARGET)
+all : $(BIN)
 	echo done
 
 clean :
 	rm -f $(REBUILDABLES)
 	echo clean
 
-$(LINK_TARGET) : $(OBJS)
-	g++ -o $@ $^ $(LIB_PATHS) $(LD_FLAGS) 
+$(BIN) : $(OBJS)
+	g++ -o $@ $(OBJS) $(LIB_PATHS) $(LD_FLAGS) 
 
-%.o : %.cpp
-#	g++ -c -o $@ $< $(CANARY_ARGS) $(CXX_FLAGS) $(INC_PATHS)
-	g++ -c -o $@ $< $(CXX_FLAGS)
-
-json11.o :
-#	g++ -c -o json11.o ../json11-master/json11.cpp -std=c++11
-	g++ -c -o json11.o json11.cpp -std=c++11
+obj/%.o : %.cpp
+	g++ -c -o $@ $(CXX_FLAGS) $< 
 
 
 
