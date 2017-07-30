@@ -24,6 +24,13 @@
 
 /* file: unit_class.h */
 
+
+/* TODO:
+1 - implement a dedicated command structure to store all command info. 
+	 ATTENTION: Cmd and Data keys and values could not be aligned if not stored in the same order. 
+*/
+
+
 #ifndef _UNIT_CLASS_H
 #define _UNIT_CLASS_H
 
