@@ -261,9 +261,7 @@ static bool getCliCmdAndExecuteIt( void )
 	getline(cin, input);
 	cmd_str = input.substr(0, 2);
 
-	cout << "__full command:" << input << endl;
-	cout << "__command:" << cmd_str << endl;
-
+	/* wait for input cli command */
 	cmd_index = getCliCmdIndex(cmd_str);
 
 	switch(cmd_index)
@@ -272,8 +270,12 @@ static bool getCliCmdAndExecuteIt( void )
 		{
 			if(false == UNIT_publishUnitOnline())
 			{
-				cout << "Online error!" << endl;
-				error = 1;
+				cout << "Publish online error!" << endl;
+				error = 2;
+			}
+			else
+			{
+				/* done */
 			}
 		}
 		break;
@@ -352,7 +354,7 @@ static bool getCliCmdAndExecuteIt( void )
 		default:
 		{
 			/* invalid command: the getCmdIndex() function has returned MAX_NUM_OF_CLI_COMMANDS value */
-			cerr << "VERTEX: error -> invalid command" << endl;
+			cerr << "Invalid command" << endl;
 			error = 3;
 		}
 	}
@@ -360,7 +362,7 @@ static bool getCliCmdAndExecuteIt( void )
 	input.clear();
 	cmd_str.clear();
 	
-	(0 == error) ? cout << "_____Command executed_____" << endl << endl << endl : cout << "_____Wrong command_____ ERROR: " << error << endl << endl << endl;
+	(0 == error) ? cout << "DONE " << endl << endl << endl : cout << "ERR: " << error << endl << endl << endl;
 
 	return end;
 }
@@ -369,6 +371,7 @@ static bool getCliCmdAndExecuteIt( void )
 
 
 /* --------------- main loop ----------- */
+
 int main(int argc, char *argv[])
 {
 /*

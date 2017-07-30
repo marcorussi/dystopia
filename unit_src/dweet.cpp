@@ -25,6 +25,11 @@
 /* file: dweet.cpp */
 
 
+/* TODO:
+ - 1) store sender cmds fields 
+*/
+
+
 /* ---------- Inclusions files --------- */
 #include "dweet.h"
 
@@ -50,6 +55,7 @@
 #include <curlpp/Exception.hpp>
 #include <curlpp/Infos.hpp>
 
+#include "unit_class.h"
 #include "json11.h"
 
 
@@ -68,9 +74,17 @@ using namespace std;
 
 
 
+/* ------------ local variables -------------- */
+
+/* store last cmds date */
+static string last_cmds_date = "";
+
+
+
+
 /* ------------ local functions prototypes -------------- */
-bool checkDweetSucceded	( string );
-bool parseJsonGetCmds	( string, string, vector<cmd_st> * );
+static bool checkDweetSucceded	( string );
+static bool parseJsonGetCmds		( string, Unit * );
 
 
 
@@ -90,9 +104,6 @@ bool DWEET_publishUnitOnline( Json *json_obj, string unit_uid_str )
 	/* transform the Json object into a text string */
 	jsontext = json_obj->stringify();
 
-	cout << "----- DWEET URL: " << url << endl;
-	cout << "----- JSON TEXT: " << jsontext << endl;
-
 	try
 	{
 		curlpp::Cleanup cleaner;
@@ -112,6 +123,8 @@ bool DWEET_publishUnitOnline( Json *json_obj, string unit_uid_str )
 		request.setOpt(cURLpp::Options::WriteStream(&result));
 
 		request.perform(); 
+
+		//cout << "Result string: " << result.str() << endl;
 	}
 
 	catch ( curlpp::LogicError & e ) 
@@ -124,19 +137,17 @@ bool DWEET_publishUnitOnline( Json *json_obj, string unit_uid_str )
 		cout << e.what() << endl;
 	}
 
-	cout << "Result string: " << result.str() << endl;
-
 	return checkDweetSucceded(result.str());
 }
 
 
 /* get lastest commands; GET method to dweet.io */
-bool DWEET_getLatestCommands( string cmd_uid_str, vector<cmd_st> *cmd_list )
+bool DWEET_getLatestCommands( Unit *unit_info )
 {
 	string url = GET_CMD_DWEET_URL_STRING;
 	stringstream result;
 
- 	url.append(cmd_uid_str);
+ 	url.append(unit_info->getCmdUID());
 
 	try 
 	{
@@ -150,7 +161,7 @@ bool DWEET_getLatestCommands( string cmd_uid_str, vector<cmd_st> *cmd_list )
 
 		request.perform();
 
-		cout << "Result string: " << result.str() << endl;
+		//cout << "Result string: " << result.str() << endl;
 	}
 
 	catch ( curlpp::LogicError & e ) {
@@ -161,7 +172,7 @@ bool DWEET_getLatestCommands( string cmd_uid_str, vector<cmd_st> *cmd_list )
 	}
 
 	/* parse Json string */
-	return parseJsonGetCmds(result.str(), cmd_uid_str, cmd_list);
+	return parseJsonGetCmds(result.str(), unit_info);
 }
 
 
@@ -178,9 +189,6 @@ bool DWEET_publishDataValue( Json *obj, string data_uid_str )
 	/* transform the Json object into a text string */
 	jsontext = obj->stringify();
 
-	cout << "----- DWEET URL: " << url << endl;
-	cout << "----- JSON TEXT: " << jsontext << endl;
-
 	try
 	{
 		curlpp::Cleanup cleaner;
@@ -199,7 +207,9 @@ bool DWEET_publishDataValue( Json *obj, string data_uid_str )
 
 		request.setOpt(cURLpp::Options::WriteStream(&result));
 
-		request.perform(); 
+		request.perform();
+
+		//cout << "Result string: " << result.str() << endl; 
 	}
 
 	catch ( curlpp::LogicError & e ) 
@@ -212,8 +222,6 @@ bool DWEET_publishDataValue( Json *obj, string data_uid_str )
 		cout << e.what() << endl;
 	}
 
-	cout << "Result string: " << result.str() << endl;
-
 	return checkDweetSucceded(result.str());
 }
 
@@ -223,7 +231,7 @@ bool DWEET_publishDataValue( Json *obj, string data_uid_str )
 /* --------------- local functions ---------------- */
 
 /* check success of POST on dweet.io */
-bool checkDweetSucceded( string json_to_parse )
+static bool checkDweetSucceded( string json_to_parse )
 {
 	string tmp;
 	bool ret_bool = false;
@@ -249,23 +257,17 @@ bool checkDweetSucceded( string json_to_parse )
 
 
 /* parse received JSON from dweet.io and store new commands if any */
-bool parseJsonGetCmds( string json_to_parse, string thing_to_find, vector<cmd_st> *cmd_list_ref )
+static bool parseJsonGetCmds( string json_to_parse, Unit *unit_info_ref )
 {
-	string tmp, last_new_date;
 	int i, j;
 	bool ret_bool = false;
 	Json obj1, obj2, obj3, obj4, obj5; 
 
 	/* if there no previous commands */
-	if(0 == cmd_list_ref->size())
+	if(0 == unit_info_ref->getNumOfCmds())
 	{
 		/* last new command date is null */
-		last_new_date = "";
-	}
-	else
-	{
-		/* get last new command date which is at the first location of the commands array */
-		last_new_date = cmd_list_ref->at(0).date;
+		last_cmds_date = "";
 	}
 
 	/* start parsing */
@@ -275,6 +277,7 @@ bool parseJsonGetCmds( string json_to_parse, string thing_to_find, vector<cmd_st
 	{
 		if(true == obj1.has("this"))
 		{
+			string tmp;
 			tmp.append(obj1["this"]);
 			if("succeeded" == tmp)
 			{
@@ -285,23 +288,22 @@ bool parseJsonGetCmds( string json_to_parse, string thing_to_find, vector<cmd_st
 					{
 						for(i=0; i<obj2.size(); i++)
 						{
-							cout << "_______________" << endl;
 							obj3 = obj2[i];
 							if(true == obj3.has("thing"))
 							{
 								string thing_str = obj3["thing"];
-								if(thing_to_find == thing_str)
+								if(unit_info_ref->getCmdUID() == thing_str)
 								{
 									if((true == obj3.has("content"))
 									&& (true == obj3.has("created")))
 									{
 										string date_str = obj3["created"];
-										cout << "last update: " << date_str << endl;
 										/* check date */
-										if(date_str > last_new_date)
+										if(date_str > last_cmds_date)
 										{
-											cmd_st cmdst;
-											cmdst.date = date_str;
+											/* store creation date */
+											unit_info_ref->setCreationDate(date_str);
+
 											obj4 = obj3["content"];
 											if(Json::OBJECT == obj4.type())
 											{
@@ -310,19 +312,18 @@ bool parseJsonGetCmds( string json_to_parse, string thing_to_find, vector<cmd_st
 												&& (true == obj4.has("priority"))
 												&& (true == obj4.has("cmd")))
 												{
-													/* ATTENTION: UID must be a string else a bad cast error will occur */
-													string str = obj4["sender_uid"];
-													cmdst.sender_uid = str;
+													/* ATTENTION: sender fields below are not stored at the moment */
+													string str;
+													/* ATTENTION: sender UID must be a string else a bad cast error will occur */
+													str.append(obj4["sender_uid"]);
 													cout << "_____ - sender_uid: " << str << endl;
 													str.clear();
 
 													str.append(obj4["sender_name"]);
-													cmdst.sender_name = str;
 													cout << "_____ - sender_name: " << str << endl;
 													str.clear();
 
 													str.append(obj4["priority"]);
-													cmdst.priority = str;
 													cout << "_____ - priority: " << str << endl;
 													str.clear();
 
@@ -330,13 +331,14 @@ bool parseJsonGetCmds( string json_to_parse, string thing_to_find, vector<cmd_st
 													obj5 = obj4["cmd"];
 													if(Json::OBJECT == obj5.type())	/* ATTENTION: only one command is used at the moment */
 													{
-														cmdst.cmd_keys = obj5.keys();
-														for(j=0; j<cmdst.cmd_keys.size(); j++)
+														vector<string> keys = obj5.keys();
+														for(j=0; j<keys.size(); j++)
 														{
-															cmdst.cmd_strings.push_back(obj5[cmdst.cmd_keys[j]]);
-															str.append(cmdst.cmd_keys[j]);
+															/* store command */
+															unit_info_ref->setCmdObj(keys[j], obj5[keys[j]]);
+															str.append(keys[j]);
 															str.append(" -> ");
-															str.append(obj5[cmdst.cmd_keys[j]]);
+															str.append(obj5[keys[j]]);
 															cout << "___________ -" << str << endl;
 															str.clear();
 														}
@@ -345,9 +347,6 @@ bool parseJsonGetCmds( string json_to_parse, string thing_to_find, vector<cmd_st
 													{
 														/* do nothing at the moment */
 													}
-
-													/* store sender commands */
-													cmd_list_ref->push_back(cmdst);
 
 													/* 1 found command at least */
 													ret_bool = true;

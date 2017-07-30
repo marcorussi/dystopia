@@ -22,13 +22,12 @@
 	SOFTWARE.
 */
 
-/* file: dweet.h */
-
-#ifndef _DWEET_H
-#define _DWEET_H
+/* file: unit_class.cpp */
 
 
-/* ------------ inclusion files ------------- */
+/* -------------- inclusion files ------------ */
+
+#include "unit_class.h"
 
 #include <cstdlib>
 #include <cerrno>
@@ -46,38 +45,48 @@
 #include <memory>
 #include <initializer_list>
 
-#include "json11.h"
-#include "unit_class.h"
 
 
 
 
-/* namespace needed here. TODO: I don't like here... think about it */
-using namespace std;
+
+
+Unit::Unit()
+{
+	int j;
+	unit_index = 0;
+	unit_name = "no_name";
+	uid_str = "";
+	cmd_uid_str = "";
+	data_uid_str = "";
+	status_str = "";
+	creation_date = "";
+	data_update = "";
+	online_found = false;
+	available_cmds.clear();
+	cmd_key.clear();
+	cmd_value.clear();
+	data_key.clear();
+	data_value.clear();
+} ;
+
+
+Unit::~Unit()
+{
+	/* do nothing at the moment */
+} ;
 
 
 
 
-/* -------------- exported macros ------------- */
-
-/* shared JSON object */
-#define JSON_OBJ						Json
 
 
 
 
-/* -------------- exported functions prototypes ------------- */
-
-extern bool DWEET_publishUnitOnline	( Json *, string );
-extern bool DWEET_getLatestCommands	( Unit * );
-extern bool DWEET_publishDataValue	( Json *, string );
 
 
 
 
-#endif
 
-
-/* End of file */
 
 

@@ -25,8 +25,9 @@
 /* file: unit.cpp */
 
 /* TODO: 
-1 - when a data value is updated, the timestamp is valid only for it but other values previously updated could be out of date
-2 - implement more than one unit 
+1 - implement a dedicated command structure to store all command info
+2 - when a data value is updated, the timestamp is valid only for it but other values previously updated could be out of date
+3 - consider to implement more than one unit 
 */
 
 
@@ -52,6 +53,7 @@
 #include <memory>
 #include <initializer_list>
 
+#include "unit_class.h"
 #include "dweet.h"
 
 
@@ -74,52 +76,8 @@
 
 
 
+/* local namespace */
 using namespace std;
-
-
-
-
-/* --------------- UnitSim class ----------------- */
-
-class UnitSim
-{
-	private:
-		int unit_index;
-		string unit_name;
-		string uid_str;
-		string cmd_uid_str;
-		string data_uid_str;
-		string status_str;
-		bool online_pub;
-		vector<string> cmd;
-		vector<string> data;
-		vector<string> data_values;
-	public:
-		UnitSim();
-		~UnitSim();
-		void setIndex(int i) { unit_index = i; }
-		int getIndex() { return unit_index; }
-		void setName(string n) { unit_name = n; }
-		string getName() { return unit_name; }
-		void setUID(string n) { uid_str = n; }
-		string getUID() { return uid_str; }
-		void setCmdUID(string n) { cmd_uid_str = n; }
-		string getCmdUID() { return cmd_uid_str; }
-		void setDataUID(string n) { data_uid_str = n; }
-		string getDataUID() { return data_uid_str; }
-		void setStatus(string n) { status_str = n; }
-		string getStatus() { return status_str; }
-		void setOnlinePubFlag(bool b) { online_pub = b; }
-		bool getOnlinePubFlag() { return online_pub; }
-		void setCmd(string n) { cmd.push_back(n); }
-		string getCmd(int i) { return cmd.at(i); }
-		int getNumOfCmds() { return cmd.size(); }
-		void setData(string n) { data.push_back(n); }
-		string getData(int i) { return data.at(i); }
-		int getNumOfDatas() { return data.size(); }
-		void setDataValue(int i, string n) { data_values[i] = (n); }
-		string getDataValue(int i) { return data_values.at(i); }
-} ;
 
 
 
@@ -145,49 +103,16 @@ static const vector<string> unit_data_list =
 };
 
 
-/* latest commands for the implemented unit */
-static vector<cmd_st> latest_cmds;
-
-
 /* ATTENTION: this istance must be after cmd and data vectors instances */
-static UnitSim units_sim;
-
-
-
-
-/* --------------- class functions ----------------- */
-
-/* ATTENTION: only one unit used at the moment */
-UnitSim::UnitSim()
-{
-	int j;
-	
-	/* Default init info */
-	unit_index = 0;
-	unit_name = "SIM_UNIT";
-	uid_str = "2017SIMUNIT001A";
-	cmd_uid_str = "CMDSIMUNIT01";
-	data_uid_str = "DATASIMUNIT01";
-	status_str = "ACTIVE";
-	online_pub = false;
-	/* ATTENTION: be sure that cmd and data vectors instances are declared before UnitSim instance */
-	cmd = unit_cmd_list;
-	data = unit_data_list;
-	for(j=0; j<unit_data_list.size(); j++)
-		data_values.push_back(" - ");
-} ;
-
-
-UnitSim::~UnitSim()
-{
-	/* do nothing at the moment */
-} ;
+static Unit unit_sim;
 
 
 
 
 /* --------------- local functions prototypes ----------------- */
-static void	executeCommand	( cmd_st * );
+
+static void initUnitInfo			( void );
+static void	dummyExecuteCommand	( int, string, string );
 
 
 
@@ -197,7 +122,7 @@ static void	executeCommand	( cmd_st * );
 /* clear stored commands */
 void UNIT_clearCmds( void )
 {
-	latest_cmds.clear();
+	unit_sim.clearCmds();
 }
 
 
@@ -207,26 +132,34 @@ void UNIT_showUnitInfo( void )
 	bool bool_result;
 	int j, num;
 
-	cout << "Unit index: " << units_sim.getIndex() << endl;
-	cout << "- Uid: " << units_sim.getUID() << endl;
-	cout << "- Cmd uid: " << units_sim.getCmdUID() << endl;
-	cout << "- Data uid: " << units_sim.getDataUID() << endl;
-	cout << "- Name: " << units_sim.getName() << endl;
-	cout << "- Status: " << units_sim.getStatus() << endl;
+	cout << "Unit index: " << unit_sim.getIndex() << endl;
+	cout << "- Uid: " << unit_sim.getUID() << endl;
+	cout << "- Cmd uid: " << unit_sim.getCmdUID() << endl;
+	cout << "- Data uid: " << unit_sim.getDataUID() << endl;
+	cout << "- Name: " << unit_sim.getName() << endl;
+	cout << "- Status: " << unit_sim.getStatus() << endl;
 
-	cout << "- Cmd: ";
-	num = units_sim.getNumOfCmds();
+	cout << "- Available Cmds: ";
+	num = unit_sim.getNumOfAvailableCmds();
 	for(j=0; j<num; j++)
 	{
-		cout << units_sim.getCmd(j);
+		cout << unit_sim.getAvailableCmd(j);
+		(j<(num-1)) ? cout << ", " : cout << "." << endl;
+	}
+
+	cout << "- Cmd: ";
+	num = unit_sim.getNumOfCmds();
+	for(j=0; j<num; j++)
+	{
+		cout << "[" << unit_sim.getCmdKey(j) << " : " << unit_sim.getCmdValue(j) << "]";
 		(j<(num-1)) ? cout << ", " : cout << "." << endl;
 	}
 
 	cout << "- Data: ";
-	num = units_sim.getNumOfDatas();
+	num = unit_sim.getNumOfDatas();
 	for(j=0; j<num; j++)
 	{
-		cout << units_sim.getData(j);
+		cout << "[" << unit_sim.getDataKey(j) << " : " << unit_sim.getDataValue(j) << "]";
 		(j<(num-1)) ? cout << ", " : cout << "." << endl;
 	}
 	cout << ".............." << endl;
@@ -240,30 +173,33 @@ bool UNIT_publishUnitOnline( void )
 	JSON_OBJ obj, cmd_obj, data_obj;
 	string str;
 
+	/* init unit info first! */
+	initUnitInfo();
+
 	/* fill all necessary keys-values fields in */
-	str = units_sim.getUID();
+	str = unit_sim.getUID();
 	obj.set("uid", str);
-	str = units_sim.getCmdUID();
+	str = unit_sim.getCmdUID();
 	obj.set("cmd_uid", str);
-	str = units_sim.getDataUID();
+	str = unit_sim.getDataUID();
 	obj.set("data_uid", str);
-	str = units_sim.getName();
+	str = unit_sim.getName();
 	obj.set("name", str);
-	str = units_sim.getStatus();
+	str = unit_sim.getStatus();
 	obj.set("status", str);
 
-	/* set cmd key-value fields */
-	for(i=0; i<units_sim.getNumOfCmds(); i++)
+	/* set available cmds fields */
+	for(i=0; i<unit_sim.getNumOfAvailableCmds(); i++)
 	{
-		str = units_sim.getCmd(i);
+		str = unit_sim.getAvailableCmd(i);
 		cmd_obj << str;
 	}
 	obj.set("cmd", cmd_obj);
 
 	/* set data key-value fields */
-	for(i=0; i<units_sim.getNumOfDatas(); i++)
+	for(i=0; i<unit_sim.getNumOfDatas(); i++)
 	{
-		str = units_sim.getData(i);
+		str = unit_sim.getDataKey(i);
 		data_obj << str;
 	}
 	obj.set("data", data_obj);
@@ -276,13 +212,15 @@ bool UNIT_publishUnitOnline( void )
 /* function to get and manage new commands */
 void UNIT_getAndManageNewCmds( void )
 {
+	int idx;
+
 	/* get new commands */
 	if(true == UNIT_getLatestCmds())
 	{
 		/* ATTENTION: execution means show commands and it is done immediately */
-		for(int i=0; i<latest_cmds.size(); i++)
+		for(idx=0; idx<unit_sim.getNumOfCmds(); idx++)
 		{
-			executeCommand(&latest_cmds[i]);
+			dummyExecuteCommand(idx, unit_sim.getCmdKey(idx), unit_sim.getCmdValue(idx));
 		}
 	}
 	else
@@ -295,31 +233,34 @@ void UNIT_getAndManageNewCmds( void )
 /* get latest commands if any */
 bool UNIT_getLatestCmds( void )
 {
-	stringstream result;
-
- 	return DWEET_getLatestCommands( units_sim.getCmdUID(), &latest_cmds );
+ 	return DWEET_getLatestCommands( &unit_sim );
 }
 
 
 /* show latest received data commands */
 void UNIT_showLatestCmds( void )
 {
-	int k, m;
+	int k, num;
 
-	for(k=0; k<latest_cmds.size(); k++)
+	/* get num of received cmds */
+	num = unit_sim.getNumOfCmds();
+	/* if there are cmds */
+	if(num > 0)
 	{
-		cout << "COMMAND " << k << ":" << endl;
-		cout << "- sender uid: " << latest_cmds[k].sender_uid << endl;
-		cout << "- sender name: " << latest_cmds[k].sender_name << endl;
-		cout << "- priority: " << latest_cmds[k].priority << endl;
-		cout << "- cmd: " << endl;
-
-		for(m=0; m<latest_cmds[k].cmd_keys.size(); m++)
+		/* show cmds */
+		for(k=0; k<num; k++)
 		{
-			cout << "      - " << latest_cmds[k].cmd_keys[m] << " -> " << latest_cmds[k].cmd_strings[m] << endl;
+			cout << endl << "---------------------------------" << endl;
+			cout << "COMMAND " << k << " :" << endl;
+			cout << "Key: " << unit_sim.getCmdKey(k) << endl;
+			cout << "Value: " << unit_sim.getCmdValue(k) << endl;
+			cout << "---------------------------------" << endl;
 		}
-
-		cout << "________________________" << endl;
+	}
+	else
+	{
+		/* no cmds received */
+		cout << "No commands to execute" << endl;
 	}
 }
 
@@ -329,15 +270,15 @@ void UNIT_showDataValues( void )
 {
 	int m;
 
-	cout << "Unit 0: " << endl;
-	cout << "- uid: " << units_sim.getUID() << endl;
-	cout << "- data uid: " << units_sim.getDataUID() << endl;
-	cout << "- name: " << units_sim.getName() << endl;
+	cout << "Unit Info: " << endl;
+	cout << "- uid: " << unit_sim.getUID() << endl;
+	cout << "- data uid: " << unit_sim.getDataUID() << endl;
+	cout << "- name: " << unit_sim.getName() << endl;
 	cout << "- data: " << endl;
 
-	for(m=0; m<units_sim.getNumOfDatas(); m++)
+	for(m=0; m<unit_sim.getNumOfDatas(); m++)
 	{
-		cout << "      - " << units_sim.getData(m) << " -> " << units_sim.getDataValue(m) << endl;
+		cout << "      - " << unit_sim.getDataKey(m) << " -> " << unit_sim.getDataValue(m) << endl;
 	}
 
 	cout << "________________________" << endl;
@@ -351,32 +292,32 @@ bool UNIT_setAndPublishDataValue( int data_index, string data_value_str )
 	JSON_OBJ obj, data_obj;	
 	string str;
 
-	if(data_index >= units_sim.getNumOfDatas())
+	if(data_index >= unit_sim.getNumOfDatas())
 	{
 		return false;
 	}
 
 	/* store data locally */
-	units_sim.setDataValue(data_index, data_value_str);
+	unit_sim.setDataValue(data_index, data_value_str);
 
 	/* fill all necessary keys-values fields in */
-	str = units_sim.getUID();
+	str = unit_sim.getUID();
 	obj.set("uid", str);
-	str = units_sim.getName();
+	str = unit_sim.getName();
 	obj.set("name", str);
-	str = units_sim.getStatus();
+	str = unit_sim.getStatus();
 	obj.set("status", str);
 
 	/* store data */
-	for(i=0; i<units_sim.getNumOfDatas(); i++)
+	for(i=0; i<unit_sim.getNumOfDatas(); i++)
 	{
-		str = units_sim.getDataValue(i);
-		data_obj.set(units_sim.getData(i), str);
+		str = unit_sim.getDataValue(i);
+		data_obj.set(unit_sim.getDataKey(i), str);
 	}
 	obj.set("data", data_obj);
 
 	/* call dweet module function */
-	return DWEET_publishDataValue( &obj, units_sim.getDataUID() );
+	return DWEET_publishDataValue( &obj, unit_sim.getDataUID() );
 }
 
 
@@ -384,22 +325,40 @@ bool UNIT_setAndPublishDataValue( int data_index, string data_value_str )
 
 /* ------------- local functions ------------- */
 
-/* execute received unit commands. ATTENTION: just show commands at the moment */
-static void executeCommand(cmd_st *command)
+/* Dummy fucntion that just shows command key and value */
+static void dummyExecuteCommand( int cmd_index, string cmd_str, string cmd_value )
 {
-	int i;
-
 	/* print command info */
 	cout << endl << "---------------------------------" << endl;
-	cout << "COMMAND INFO: " << endl;
-	cout << "Sender ID: " << command->sender_uid << endl;
-	cout << "Sender Name: " << command->sender_name << endl;
-	cout << "Priority: " << command->priority << endl;
+	cout << "COMMAND " << cmd_index << " :" << endl;
+	cout << "Key: " << cmd_str << endl;
+	cout << "Value: " << cmd_value << endl;
+	cout << "---------------------------------" << endl;
+}
 
-	/* print commands and their values */
-	for(i = 0; i < command->cmd_keys.size(); i++)
+
+/* Function to init unit info */
+static void initUnitInfo( void )
+{
+	int j;
+	
+	/* Default init info */
+	unit_sim.setIndex(0);	/* one unit only at the moment */
+	unit_sim.setName("SIM_UNIT");
+	unit_sim.setUID("2017SIMUNIT001A");
+	unit_sim.setCmdUID("CMDSIMUNIT01");
+	unit_sim.setDataUID("DATASIMUNIT01");
+	unit_sim.setStatus("ACTIVE");			/* fixed at the moment */
+	unit_sim.setOnlineFoundFlag(false);	/* used from leader only */
+
+	for(j=0; j<unit_cmd_list.size(); j++)
 	{
-		cout << " - " << command->cmd_keys[i] << " : " << command->cmd_strings[i] << endl;
+		unit_sim.setAvailableCmd(unit_cmd_list[j]);
+	}
+
+	for(j=0; j<unit_data_list.size(); j++)
+	{
+		unit_sim.setDataObj(unit_data_list[j], " - ");
 	}
 }
 

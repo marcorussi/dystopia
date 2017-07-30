@@ -31,7 +31,7 @@ LIB_PATHS = -L$(abspath $(LIB_PATH))
 
 BIN = $(BIN_PATH)/unit_demo.exe
 
-OBJS = $(patsubst %.o, $(OBJ_PATH)/%.o ,json11.o dweet.o unit.o main.o)
+OBJS = $(patsubst %.o, $(OBJ_PATH)/%.o ,json11.o unit_class.o dweet.o unit.o main.o)
 
 CXX_FLAGS = -std=c++11
 #-fno-rtti -fno-exceptions
