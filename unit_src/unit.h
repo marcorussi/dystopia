@@ -65,6 +65,8 @@ extern bool UNIT_getLatestCmds				( void );
 extern void UNIT_showLatestCmds				( void );
 extern void UNIT_showDataValues				( void );
 extern bool UNIT_setAndPublishDataValue	( int, string );
+extern bool UNIT_bIsMQTTRunning				( void );
+extern void UNIT_manageMQTTLoop				( void );
 
 
 

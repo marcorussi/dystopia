@@ -63,6 +63,9 @@ Unit::Unit()
 	creation_date = "";
 	data_update = "";
 	online_found = false;
+	mqttHost = "";
+	mqttPort = "";
+	mqttTopic = "";
 	available_cmds.clear();
 	cmd_key.clear();
 	cmd_value.clear();

@@ -25,18 +25,21 @@ BIN_PATH = bin
 
 OBJ_PATH = obj
 
+#CURLPP_INC_PATH := /usr/local/include/curlpp
+#MOSQUITTO_INC_PATH := /usr/local/include
+
 LIB_PATH := /usr/local/lib
 
 LIB_PATHS = -L$(abspath $(LIB_PATH))
 
 BIN = $(BIN_PATH)/unit_demo.exe
 
-OBJS = $(patsubst %.o, $(OBJ_PATH)/%.o ,json11.o unit_class.o dweet.o unit.o main.o)
+OBJS = $(patsubst %.o, $(OBJ_PATH)/%.o ,json11.o unit_class.o dweet.o mqtt_mng.o unit.o main.o)
 
 CXX_FLAGS = -std=c++11
 #-fno-rtti -fno-exceptions
 
-LD_FLAGS = -lcurlpp -lcurl
+LD_FLAGS = -lcurlpp -lcurl -lmosquittopp -lmosquitto
 
 REBUILDABLES = $(OBJS) $(BIN)
 

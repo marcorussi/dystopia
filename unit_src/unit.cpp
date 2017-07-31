@@ -54,6 +54,7 @@
 #include <initializer_list>
 
 #include "unit_class.h"
+#include "mqtt_mng.h"
 #include "dweet.h"
 
 
@@ -89,7 +90,8 @@ static const vector<string> unit_cmd_list =
 {
 	"valve",
 	"led",
-	"ctrl"
+	"ctrl",
+	"mqtt"
 };
 
 
@@ -107,10 +109,20 @@ static const vector<string> unit_data_list =
 static Unit unit_sim;
 
 
+/* Indicate that MQTT is running (true) */
+static bool bMQTTIsRunning = false;
+
+
+/* Store MQTT instance */
+static class mqtt_mng *mqtt_instance;
+
+
 
 
 /* --------------- local functions prototypes ----------------- */
 
+static void startMQTT				( void );
+static void stopMQTT					( void );
 static void initUnitInfo			( void );
 static void	dummyExecuteCommand	( int, string, string );
 
@@ -187,6 +199,12 @@ bool UNIT_publishUnitOnline( void )
 	obj.set("name", str);
 	str = unit_sim.getStatus();
 	obj.set("status", str);
+	str = unit_sim.getMQTTHost();
+	obj.set("mqtt_host", str);
+	str = unit_sim.getMQTTPort();
+	obj.set("mqtt_port", str);
+	str = unit_sim.getMQTTTopic();
+	obj.set("mqtt_topic", str);
 
 	/* set available cmds fields */
 	for(i=0; i<unit_sim.getNumOfAvailableCmds(); i++)
@@ -321,9 +339,93 @@ bool UNIT_setAndPublishDataValue( int data_index, string data_value_str )
 }
 
 
+/* Return true if MQTT is running */
+bool UNIT_bIsMQTTRunning( void )
+{
+	return bMQTTIsRunning;
+}
+
+
+/* Function to manage MQTT loop */
+void UNIT_manageMQTTLoop( void )
+{
+	int rc;
+
+	rc = mqtt_instance->loop();
+	if(rc){
+		mqtt_instance->reconnect();
+	}
+}	
+
+
 
 
 /* ------------- local functions ------------- */
+
+/* start MQTT */
+static void startMQTT( void )
+{
+	int port, i, num;
+	string field_to_conv;
+	char id_str[MQTT_FIELDS_STRING_MAX_LEN+1];	
+	char host_str[MQTT_FIELDS_STRING_MAX_LEN+1];	
+	char topic_str[MQTT_FIELDS_STRING_MAX_LEN+1];
+
+	/* MQTT UID */
+	field_to_conv = unit_sim.getUID();
+	num = field_to_conv.size();
+	if( num > MQTT_FIELDS_STRING_MAX_LEN )
+		num = MQTT_FIELDS_STRING_MAX_LEN;
+	for(i=0; i<num; i++)
+	{
+		id_str[i] = field_to_conv[i];
+	}
+	id_str[i] = '\0';
+
+	/* MQTT host */
+	field_to_conv = unit_sim.getMQTTHost();
+	num = field_to_conv.size();
+	if( num > MQTT_FIELDS_STRING_MAX_LEN )
+		num = MQTT_FIELDS_STRING_MAX_LEN;
+	for(i=0; i<num; i++)
+	{
+		host_str[i] = field_to_conv[i];
+	}
+	host_str[i] = '\0';
+
+	/* MQTT topic */
+	field_to_conv = unit_sim.getMQTTTopic();
+	num = field_to_conv.size();
+	if( num > MQTT_FIELDS_STRING_MAX_LEN )
+		num = MQTT_FIELDS_STRING_MAX_LEN;
+	for(i=0; i<num; i++)
+	{
+		topic_str[i] = field_to_conv[i];
+	}
+	topic_str[i] = '\0';
+
+	/* MQTT port */
+	port = stoi(unit_sim.getMQTTPort());
+
+	mosqpp::lib_init();
+
+	mqtt_instance = new mqtt_mng(	(const char *)id_str, 
+											(const char *)host_str, 
+											port, 
+											(const char *)topic_str);
+
+	bMQTTIsRunning = true;
+}
+
+
+/* stop MQTT */
+static void stopMQTT( void )
+{
+	mosqpp::lib_cleanup();
+
+	bMQTTIsRunning = false;
+}
+
 
 /* Dummy fucntion that just shows command key and value */
 static void dummyExecuteCommand( int cmd_index, string cmd_str, string cmd_value )
@@ -334,6 +436,31 @@ static void dummyExecuteCommand( int cmd_index, string cmd_str, string cmd_value
 	cout << "Key: " << cmd_str << endl;
 	cout << "Value: " << cmd_value << endl;
 	cout << "---------------------------------" << endl;
+
+	/* if MQTT command */
+	if( cmd_str == "mqtt" )
+	{
+		/* if ON */
+		if( cmd_value == "on" )
+		{
+			/* start MQTT */
+			startMQTT();
+		}
+		/* else if OFF */
+		else if( cmd_value == "off" )
+		{
+			/* stop MQTT */
+			stopMQTT();
+		}
+		else
+		{
+			/* discard command */
+		}
+	}
+	else
+	{
+		/* do nothing */
+	}
 }
 
 
@@ -350,6 +477,9 @@ static void initUnitInfo( void )
 	unit_sim.setDataUID("DATASIMUNIT01");
 	unit_sim.setStatus("ACTIVE");			/* fixed at the moment */
 	unit_sim.setOnlineFoundFlag(false);	/* used from leader only */
+	unit_sim.setMQTTHost("test.mosquitto.org");
+	unit_sim.setMQTTPort("1883");
+	unit_sim.setMQTTTopic("unit/test");
 
 	for(j=0; j<unit_cmd_list.size(); j++)
 	{

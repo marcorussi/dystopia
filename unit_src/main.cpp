@@ -383,6 +383,7 @@ int main(int argc, char *argv[])
 
 	char *url = argv[1];
 */
+
 	bool end_prog = false;
 
 	while(end_prog != true)
@@ -411,8 +412,17 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			/* wait until cli command input is inserted and execute it */
-			end_prog = getCliCmdAndExecuteIt();
+			/* If MQTT is running */
+			if(true == UNIT_bIsMQTTRunning())
+			{
+				/* manage MQTT loop through unit module */
+				UNIT_manageMQTTLoop();	
+			}
+			else
+			{
+				/* wait until cli command input is inserted and execute it */
+				end_prog = getCliCmdAndExecuteIt();
+			}
 		}
 	}
 
