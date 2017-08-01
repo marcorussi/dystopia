@@ -64,6 +64,11 @@ extern bool UNIT_showUnitInfo			( int );
 extern bool UNIT_discOnlineUnits		( void );
 extern bool UNIT_setUnitCmd			( int, int, string);
 extern bool UNIT_getUnitData			( int );
+extern bool UNIT_bIsMQTTRunning		( void );
+extern void UNIT_manageMQTTLoop		( void );
+extern bool UNIT_startMQTT				( int );
+extern void UNIT_stopMQTT				( void );
+extern void UNIT_sendMQTTMessage		( const char *);
 
 
 

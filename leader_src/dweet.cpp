@@ -367,6 +367,11 @@ static bool parseJsonGetUnits( string json_to_parse, string thing_to_find, vecto
 												temp_unit.setDataUID(obj4["data_uid"]);
 												temp_unit.setName(obj4["name"]);
 												temp_unit.setStatus(obj4["status"]);
+												/* store MQTT info */
+												temp_unit.setMQTTHost(obj4["mqtt_host"]);
+												temp_unit.setMQTTPort(obj4["mqtt_port"]);
+												temp_unit.setMQTTRxTopic(obj4["mqtt_rxtopic"]);
+												temp_unit.setMQTTTxTopic(obj4["mqtt_txtopic"]);
 
 												obj5 = obj4["cmd"];
 												if(Json::ARRAY == obj5.type())

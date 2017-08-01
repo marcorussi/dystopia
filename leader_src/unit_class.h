@@ -69,6 +69,10 @@ class Unit
 		string creation_date;
 		string data_update;
 		bool online_found;
+		string mqttHost;
+		string mqttPort;
+		string mqttRxTopic;
+		string mqttTxTopic;
 		vector<string> cmd_key;
 		vector<string> cmd_value;
 		vector<string> data_key;
@@ -94,6 +98,14 @@ class Unit
 		string getDataUpdate() { return data_update; }
 		void setOnlineFoundFlag(bool b) { online_found = b; }
 		bool getOnlineFoundFlag() { return online_found; }
+		void setMQTTHost(string h) { mqttHost = h; }
+		string getMQTTHost() { return mqttHost; }
+		void setMQTTPort(string p) { mqttPort = p; }
+		string getMQTTPort() { return mqttPort; }
+		void setMQTTRxTopic(string t) { mqttRxTopic = t; }
+		string getMQTTRxTopic() { return mqttRxTopic; }
+		void setMQTTTxTopic(string t) { mqttTxTopic = t; }
+		string getMQTTTxTopic() { return mqttTxTopic; }
 		void setCmdObj(string k, string v) { cmd_key.push_back(k); cmd_value.push_back(v); }
 		void setCmdValue(int i, string v) { cmd_value[i] = v; }
 		string getCmdKey(int i) { return cmd_key.at(i); }

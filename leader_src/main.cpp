@@ -49,6 +49,8 @@
 #include <map>
 #include <memory>
 #include <initializer_list>
+#include <chrono>
+#include <thread>
 
 #include "unit_mng.h"
 
@@ -57,13 +59,16 @@
 
 /* -------------- local constants ------------- */
 
-#define MAX_NUM_OF_CLI_COMMANDS						6
+#define MAX_NUM_OF_CLI_COMMANDS						7
 
 
 
 
 /* local namespace */
 using namespace std;
+
+using namespace std::this_thread; 	// sleep_for, sleep_until
+using namespace std::chrono; 			// nanoseconds, system_clock, seconds
 
 
 
@@ -78,8 +83,13 @@ static const string cmd_list[MAX_NUM_OF_CLI_COMMANDS] =
 	"sa",
 	"cs",
 	"dg",
+	"mq",
 	"en"
 };
+
+
+/* End of program if true */
+volatile bool end_prog = false;
 
 
 
@@ -87,7 +97,9 @@ static const string cmd_list[MAX_NUM_OF_CLI_COMMANDS] =
 /* --------------- Local functions prototypes ----------------- */
 
 static int	getCmdIndex		( string );
-static int 	convertStrNum	( string );
+static int	convertStrNum	( string );
+static void	mainMqttLoop	( void );
+static void mainCliLoop		( void );
 
 
 
@@ -123,6 +135,186 @@ static int convertStrNum(string num_str)
 }
 
 
+static void mainMqttLoop( void ) 
+{
+	while(end_prog != true)
+	{
+		if(true == UNIT_bIsMQTTRunning())
+		{
+			UNIT_manageMQTTLoop();
+		}
+		else
+		{
+			/* do nothing */
+		}
+	}
+}
+
+
+static void mainCliLoop( void )
+{
+	int error = 0;
+	string input, cmd_str;
+	int cmd_index;
+	
+	while(end_prog != true)
+	{
+		if(true == UNIT_bIsMQTTRunning())
+		{
+			getline(cin, input);
+			/* check escape sequence to stop MQTT */
+			if(input == "---")
+			{
+				UNIT_stopMQTT();
+				cout << "MQTT stop!" << endl;
+			}
+			else
+			{
+				UNIT_sendMQTTMessage(input.c_str());
+			}
+		}
+		else
+	 	{
+			error = 0;
+			cout << "Available commands:" << endl 
+			<< "du: check online units and list them" << endl 
+			<< "su [u]: show unit data and cmd [u=unit index]" << endl 
+			<< "sa: show data and cmd of all units" << endl 
+			<< "cs [u] [c] [v]: set unit cmd value [u=unit index] [c=cmd index] [v=value]" << endl
+			<< "dg [u]: get unit data [u=unit index]" << endl
+			<< "mq [u] [c]: start MQTT [u=unit index] [c=(on)]" << endl
+			<< "en: end of program" << endl;
+
+			cout << "Insert command:";
+			getline(cin, input);
+			cmd_str = input.substr(0, 2);
+
+			/* wait for cli commands */
+			cmd_index = getCmdIndex(cmd_str);
+
+			/* execute cli command */
+			switch(cmd_index)
+			{
+				case 0: //"du"
+				{
+					if(false == UNIT_discOnlineUnits())
+					{
+						cout << "Fail to find online units!" << endl;
+						error = 2;
+					}
+					else
+					{
+						/* show all units after discovery */
+						UNIT_showAllUnitsInfo();
+					}
+					break;
+				}
+			
+				case 1: //"su"
+				{
+					int u;
+					u = convertStrNum(input.substr(3, 1));
+					cout << "Inserted u: " << u << endl;
+					if(false == UNIT_showUnitInfo(u))
+					{
+						cout << "Parameter error!" << endl;
+						error = 1;
+					}
+					break;
+				}
+			
+				case 2: //"sa"
+				{
+					/* show all units */
+					UNIT_showAllUnitsInfo();
+				
+					break;
+				}
+			
+				case 3: //"cs"
+				{
+					int u, c;
+					string v;
+					u = convertStrNum(input.substr(3, 1));
+					c = convertStrNum(input.substr(5, 1));	/* ATTENTION: erroneous letter values are converted anyway */
+					v = input.substr(7);
+					cout << "Inserted u: " << u << " - Inserted c: " << c << " - Inserted v: " << v << endl;
+					if(false == UNIT_setUnitCmd(u, c, v))
+					{
+						cout << "Parameters error!" << endl;
+						error = 1;
+					}
+					break;
+				}
+			
+				case 4: //"dg"
+				{
+					int i, u;
+					u = convertStrNum(input.substr(3, 1));
+					cout << "Inserted u: " << u << endl;
+					if(false == UNIT_getUnitData(u))
+					{
+						cout << "Parameters error!" << endl;
+						error = 1;
+					}
+					else
+					{
+						/* show unit info (including new received data) */
+						UNIT_showUnitInfo(u);
+					}
+
+					break;
+				}
+
+				case 5: //"mq"
+				{
+					int u;
+					string c;
+					u = convertStrNum(input.substr(3, 1));
+					c = input.substr(5, 2);
+					cout << "Inserted u: " << u << "Inserted c: " << c << endl;
+					if(c == "on")
+					{
+						if(false == UNIT_startMQTT(u))
+						{
+							cout << "Parameters error!" << endl;
+							error = 1;
+						}
+						else
+						{
+							cout << "MQTT start!" << endl;
+						}
+					}
+					else
+					{
+						cout << "Parameters error!" << endl;
+						error = 1;
+					}
+				}
+				break;
+				case 6: //"en"
+				{
+					end_prog = true;
+					break;
+				}
+			
+				default:
+				{
+					/* invalid command: the getCmdIndex() function has returned MAX_NUM_OF_COMMANDS value */
+					cerr << "Invalid command" << endl;
+					error = 3;
+				}
+			}
+
+			input.clear();
+			cmd_str.clear();
+		
+			(0 == error) ? cout << "DONE " << endl << endl << endl : cout << "ERR: " << error << endl << endl << endl;
+		}
+	}
+}
+
+
 
 
 /* -------------- main lopp --------------- */
@@ -138,121 +330,19 @@ int main(int argc, char *argv[])
 
 	char *url = argv[1];
 */
-	int error = 0;
-	volatile bool end_prog = false;
-	string input, cmd_str;
-	int cmd_index;
 
-	while(end_prog != true)
-	{
-		error = 0;
-		cout << "Available commands:" << endl 
-		<< "du: check online units and list them" << endl 
-		<< "su [u]: show unit data and cmd [u=unit index]" << endl 
-		<< "sa: show data and cmd of all units" << endl 
-		<< "cs [u] [c] [v]: set unit cmd value [u=unit index] [c=cmd index] [v=value]" << endl
-		<< "dg [u]: get unit data [u=unit index]" << endl;
+	/* init first task */
+	thread task1(mainCliLoop);
 
-		cout << "Insert command:";
-		getline(cin, input);
-		cmd_str = input.substr(0, 2);
+	/* init second task */
+	thread task2(mainMqttLoop);
 
-		/* wait for cli commands */
-		cmd_index = getCmdIndex(cmd_str);
+	/* join first task */
+	task1.join();
 
-		/* execute cli command */
-		switch(cmd_index)
-		{
-			case 0: //"du"
-			{
-				if(false == UNIT_discOnlineUnits())
-				{
-					cout << "Fail to find online units!" << endl;
-					error = 2;
-				}
-				else
-				{
-					/* show all units after discovery */
-					UNIT_showAllUnitsInfo();
-				}
-				break;
-			}
-			
-			case 1: //"su"
-			{
-				int u;
-				u = convertStrNum(input.substr(3, 1));
-				cout << "Inserted u: " << u << endl;
-				if(false == UNIT_showUnitInfo(u))
-				{
-					cout << "Parameter error!" << endl;
-					error = 1;
-				}
-				break;
-			}
-			
-			case 2: //"sa"
-			{
-				/* show all units */
-				UNIT_showAllUnitsInfo();
-				
-				break;
-			}
-			
-			case 3: //"cs"
-			{
-				int u, c;
-				string v;
-				u = convertStrNum(input.substr(3, 1));
-				c = convertStrNum(input.substr(5, 1));	/* ATTENTION: erroneous letter values are converted anyway */
-				v = input.substr(7);
-				cout << "Inserted u: " << u << " - Inserted c: " << c << " - Inserted v: " << v << endl;
-				if(false == UNIT_setUnitCmd(u, c, v))
-				{
-					cout << "Parameters error!" << endl;
-					error = 1;
-				}
-				break;
-			}
-			
-			case 4: //"dg"
-			{
-				int i, u;
-				u = convertStrNum(input.substr(3, 1));
-				cout << "Inserted u: " << u << endl;
-				if(false == UNIT_getUnitData(u))
-				{
-					cout << "Parameters error!" << endl;
-					error = 1;
-				}
-				else
-				{
-					/* show unit info (including new received data) */
-					UNIT_showUnitInfo(u);
-				}
+	/* join second task */
+	task2.join();
 
-				break;
-			}
-			
-			case 5: //"en"
-			{
-				end_prog = true;
-				break;
-			}
-			
-			default:
-			{
-				/* invalid command: the getCmdIndex() function has returned MAX_NUM_OF_COMMANDS value */
-				cerr << "Invalid command" << endl;
-				error = 3;
-			}
-		}
-
-		input.clear();
-		cmd_str.clear();
-		
-		(0 == error) ? cout << "DONE " << endl << endl << endl : cout << "ERR: " << error << endl << endl << endl;
-	}
 
 	return EXIT_SUCCESS;
 }

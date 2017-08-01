@@ -22,12 +22,9 @@
 	SOFTWARE.
 */
 
-/* file: unit_class.cpp */
 
-
-/* -------------- inclusion files ------------ */
-
-#include "unit_class.h"
+#ifndef _MQTT_MNG_H
+#define _MQTT_MNG_H
 
 #include <cstdlib>
 #include <cerrno>
@@ -41,55 +38,23 @@
 #include <cstdlib>
 #include <limits>
 #include <vector>
-#include <map>
-#include <memory>
-#include <initializer_list>
+
+#include <mosquittopp.h>
 
 
+#define MQTT_FIELDS_STRING_MAX_LEN			30		/* ATTENTION: maximum of 30 chars */
 
 
-
-
-
-Unit::Unit()
+class mqtt_mng : public mosqpp::mosquittopp
 {
-	int j;
-	unit_index = 0;
-	unit_name = "no_name";
-	uid_str = "";
-	cmd_uid_str = "";
-	data_uid_str = "";
-	status_str = "";
-	creation_date = "";
-	data_update = "";
-	online_found = false;
-	mqttHost = "";
-	mqttPort = "";
-	mqttRxTopic = "";
-	mqttTxTopic = "";
-	cmd_key.clear();
-	cmd_value.clear();
-	data_key.clear();
-	data_value.clear();
-} ;
+	public:
+		mqtt_mng(const char *id, const char *host, int port, const char *mqttRxTopic, const char *mqttTxTopic);
+		~mqtt_mng();
 
+		void on_connect(int rc);
+		void on_message(const struct mosquitto_message *message);
+		void on_subscribe(int mid, int qos_count, const int *granted_qos);
+		void send_msg(const char *message);
+};
 
-Unit::~Unit()
-{
-	/* do nothing at the moment */
-} ;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#endif
