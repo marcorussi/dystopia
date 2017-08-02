@@ -23,6 +23,7 @@
 */
 
 
+/* Inclusion files */
 #include <cstdlib>
 #include <cerrno>
 #include <string>
@@ -40,14 +41,27 @@
 #include <mosquittopp.h>
 
 
+/* local namespace */
+using namespace std;
+
+
+
+
+/* Welcome message defines */
 #define WELCOME_MSG						"Hello, welcome..."
 #define WELCOME_MSG_LEN					strlen(WELCOME_MSG)
 
 
-static char mqttRxTopic_str[MQTT_FIELDS_STRING_MAX_LEN+1];
-static char mqttTxTopic_str[MQTT_FIELDS_STRING_MAX_LEN+1];	
 
 
+/* RX and TX topics strings */
+static char mqttRxTopic_str[MQTT_FIELDS_STRING_MAX_LEN+1] = { 0 };
+static char mqttTxTopic_str[MQTT_FIELDS_STRING_MAX_LEN+1] = { 0 };	
+
+
+
+
+/* class initialiser */
 mqtt_mng::mqtt_mng(const char *id, const char *host, int port, const char *mqttRxTopic, const char *mqttTxTopic) : mosquittopp(id)
 {
 	int keepalive = 60;
@@ -56,19 +70,28 @@ mqtt_mng::mqtt_mng(const char *id, const char *host, int port, const char *mqttR
 	memcpy(mqttRxTopic_str, mqttRxTopic, strlen(mqttRxTopic));
 	memcpy(mqttTxTopic_str, mqttTxTopic, strlen(mqttTxTopic));
 
+	cout << "ID: " << id << endl;
+	cout << "HOST: " << host << endl;
+	cout << "PORT: " << port << endl;
+	cout << "Rx topic: " << mqttRxTopic << endl;
+	cout << "Tx topic: " << mqttTxTopic << endl;
 
 	/* Connect immediately. This could also be done by calling
-	 * mqtt_tempconv->connect(). */
+	 * mqtt_mng->connect(). */
 	connect(host, port, keepalive);
 };
 
+
+/* class de-initialiser */
 mqtt_mng::~mqtt_mng()
 {
 }
 
+
+/* on connection event */
 void mqtt_mng::on_connect(int rc)
 {
-	printf("Connected with code %d.\n", rc);
+	cout << "Connected with code: " << rc << endl;
 	if(rc == 0)
 	{
 		/* Only attempt to subscribe on a successful connect. */
@@ -76,27 +99,40 @@ void mqtt_mng::on_connect(int rc)
 	}
 }
 
+
+/* on message event */
 void mqtt_mng::on_message(const struct mosquitto_message *message)
 {
 	char buf[51];
 
-	if(!strcmp(message->topic, mqttTxTopic_str)){
+	/* if received topic is the TX unit one */
+	if(!strcmp(message->topic, mqttTxTopic_str))
+	{
+		/* clear buffer */
 		memset(buf, 0, 51*sizeof(char));
 		/* Copy N-1 bytes to ensure always 0 terminated. */
 		memcpy(buf, message->payload, 50*sizeof(char));
 
 		/* ATTENTION: send message on screen output at the moment */
-		printf("\n--> received MQTT message: %s.\n", buf);
+		cout << "---> " << buf << endl;
+	}
+	else
+	{
+		/* do nothing */
 	}
 }
 
+
+/* on subscribe event */
 void mqtt_mng::on_subscribe(int mid, int qos_count, const int *granted_qos)
 {
-	printf("Subscription succeeded.\n");
+	cout << "Subscription succeeded to: " << mqttTxTopic_str << endl;
 
-	publish(NULL, mqttRxTopic_str, WELCOME_MSG_LEN, WELCOME_MSG);
+	//publish(NULL, mqttRxTopic_str, WELCOME_MSG_LEN, WELCOME_MSG);
 }
 
+
+/* function to send a message to RX unit topic */
 void mqtt_mng::send_msg(const char *message)
 {
 	/* Send message to unit RX topic */

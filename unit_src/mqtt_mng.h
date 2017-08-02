@@ -48,12 +48,13 @@
 class mqtt_mng : public mosqpp::mosquittopp
 {
 	public:
-		mqtt_mng(const char *id, const char *host, int port, const char *mqttTopic);
+		mqtt_mng(const char *id, const char *host, int port, const char *mqttRxTopic, const char *mqttTxTopic);
 		~mqtt_mng();
 
 		void on_connect(int rc);
 		void on_message(const struct mosquitto_message *message);
 		void on_subscribe(int mid, int qos_count, const int *granted_qos);
+		void send_msg(const char *message);
 };
 
 #endif

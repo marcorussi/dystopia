@@ -70,7 +70,7 @@ class Unit
 		string data_update;
 		bool online_found;
 		string mqttHost;
-		string mqttPort;
+		int mqttPort;
 		string mqttRxTopic;
 		string mqttTxTopic;
 		vector<string> cmd_key;
@@ -100,8 +100,8 @@ class Unit
 		bool getOnlineFoundFlag() { return online_found; }
 		void setMQTTHost(string h) { mqttHost = h; }
 		string getMQTTHost() { return mqttHost; }
-		void setMQTTPort(string p) { mqttPort = p; }
-		string getMQTTPort() { return mqttPort; }
+		void setMQTTPort(int p) { mqttPort = p; }
+		int getMQTTPort() { return mqttPort; }
 		void setMQTTRxTopic(string t) { mqttRxTopic = t; }
 		string getMQTTRxTopic() { return mqttRxTopic; }
 		void setMQTTTxTopic(string t) { mqttTxTopic = t; }

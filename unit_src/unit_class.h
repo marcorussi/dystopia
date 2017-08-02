@@ -70,8 +70,9 @@ class Unit
 		string data_update;
 		bool online_found;					/* used by leaders only */
 		string mqttHost;						/* ATTENTION: check MQTT_FIELDS_STRING_MAX_LEN define in mqtt_mng.h */
-		string mqttPort;						/* ATTENTION: check MQTT_FIELDS_STRING_MAX_LEN define in mqtt_mng.h */
-		string mqttTopic;						/* ATTENTION: check MQTT_FIELDS_STRING_MAX_LEN define in mqtt_mng.h */
+		int mqttPort;							/* ATTENTION: check MQTT_FIELDS_STRING_MAX_LEN define in mqtt_mng.h */
+		string mqttRxTopic;					/* ATTENTION: check MQTT_FIELDS_STRING_MAX_LEN define in mqtt_mng.h */
+		string mqttTxTopic;					/* ATTENTION: check MQTT_FIELDS_STRING_MAX_LEN define in mqtt_mng.h */
 		vector<string> available_cmds;	/* store available commands to publish. UNIT -> LEADER */
 		vector<string> cmd_key;				/* any received command key to be executed is stored here. LEADER -> UNIT */
 		vector<string> cmd_value;			/* any received command value to be executed is stored here. LEADER -> UNIT */
@@ -100,10 +101,12 @@ class Unit
 		bool getOnlineFoundFlag() { return online_found; }
 		void setMQTTHost(string h) { mqttHost = h; }
 		string getMQTTHost() { return mqttHost; }
-		void setMQTTPort(string p) { mqttPort = p; }
-		string getMQTTPort() { return mqttPort; }
-		void setMQTTTopic(string t) { mqttTopic = t; }
-		string getMQTTTopic() { return mqttTopic; }
+		void setMQTTPort(int p) { mqttPort = p; }
+		int getMQTTPort() { return mqttPort; }
+		void setMQTTRxTopic(string t) { mqttRxTopic = t; }
+		string getMQTTRxTopic() { return mqttRxTopic; }
+		void setMQTTTxTopic(string t) { mqttTxTopic = t; }
+		string getMQTTTxTopic() { return mqttTxTopic; }
 		void setAvailableCmd(string c) { available_cmds.push_back(c); }
 		string getAvailableCmd(int i) { return available_cmds.at(i); }
 		int getNumOfAvailableCmds() { return available_cmds.size(); }

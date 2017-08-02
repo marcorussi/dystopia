@@ -71,7 +71,7 @@
 #define UNIT8_THING_DWEET_CODE 			"unit8"
 #define UNIT9_THING_DWEET_CODE 			"unit9"
 
-#define UNIT_THING_DWEET_CODE				UNIT7_THING_DWEET_CODE
+#define UNIT_THING_DWEET_CODE				UNIT1_THING_DWEET_CODE
 
 #define SENDER_UID_STRING					"2017TEST001A"
 #define SENDER_NAME_STRING					"DYSTOPIA"
@@ -235,7 +235,8 @@ void UNIT_manageMQTTLoop( void )
 	int rc;
 
 	rc = mqtt_instance->loop();
-	if(rc){
+	if(rc)
+	{
 		mqtt_instance->reconnect();
 	}
 }	
@@ -247,92 +248,40 @@ bool UNIT_startMQTT( int unit_index )
 	int port, i, num;
 	string field_to_conv;
 	char id_str[MQTT_FIELDS_STRING_MAX_LEN+1];	
-	//char *id_str;
 	char host_str[MQTT_FIELDS_STRING_MAX_LEN+1];	
-	//char *host_str;
 	char rxtopic_str[MQTT_FIELDS_STRING_MAX_LEN+1];
-	//char *rxtopic_str;
 	char txtopic_str[MQTT_FIELDS_STRING_MAX_LEN+1];
-	//char *txtopic_str;
 
-	//if(unit_index >= unit_list.size())
-		//return false;
+	memset(id_str, 0, MQTT_FIELDS_STRING_MAX_LEN+1);
+	memset(host_str, 0, MQTT_FIELDS_STRING_MAX_LEN+1);
+	memset(rxtopic_str, 0, MQTT_FIELDS_STRING_MAX_LEN+1);
+	memset(txtopic_str, 0, MQTT_FIELDS_STRING_MAX_LEN+1);
+
+	if(unit_index >= unit_list.size())
+		return false;
 
 	/* MQTT UID */
-/*
-	field_to_conv = unit_list[unit_index].getUID();
-	num = field_to_conv.size();
-	if( num > MQTT_FIELDS_STRING_MAX_LEN )
-		num = MQTT_FIELDS_STRING_MAX_LEN;
-	for(i=0; i<num; i++)
-	{
-		id_str[i] = field_to_conv[i];
-	}
-	id_str[i] = '\0';
-*/
-	field_to_conv = "pippo";//unit_list[unit_index].getUID();
+	field_to_conv = SENDER_UID_STRING;
 	memcpy(id_str, field_to_conv.c_str(), field_to_conv.size());
 	field_to_conv.clear();
 
 	/* MQTT host */
-/*
 	field_to_conv = unit_list[unit_index].getMQTTHost();
-	num = field_to_conv.size();
-	if( num > MQTT_FIELDS_STRING_MAX_LEN )
-		num = MQTT_FIELDS_STRING_MAX_LEN;
-	for(i=0; i<num; i++)
-	{
-		host_str[i] = field_to_conv[i];
-	}
-	host_str[i] = '\0';
-*/
-	field_to_conv = "test.mosquitto.org";//unit_list[unit_index].getMQTTHost();
 	memcpy(host_str, field_to_conv.c_str(), field_to_conv.size());
 	field_to_conv.clear();
 
 	/* MQTT RX topic */
-/*
 	field_to_conv = unit_list[unit_index].getMQTTRxTopic();
-	num = field_to_conv.size();
-	if( num > MQTT_FIELDS_STRING_MAX_LEN )
-		num = MQTT_FIELDS_STRING_MAX_LEN;
-	for(i=0; i<num; i++)
-	{
-		rxtopic_str[i] = field_to_conv[i];
-	}
-	rxtopic_str[i] = '\0';
-*/
-	field_to_conv = "unit/rx";//unit_list[unit_index].getMQTTRxTopic();
 	memcpy(rxtopic_str, field_to_conv.c_str(), field_to_conv.size());
 	field_to_conv.clear();
 
 	/* MQTT TX topic */
-/*
 	field_to_conv = unit_list[unit_index].getMQTTTxTopic();
-	num = field_to_conv.size();
-	if( num > MQTT_FIELDS_STRING_MAX_LEN )
-		num = MQTT_FIELDS_STRING_MAX_LEN;
-	for(i=0; i<num; i++)
-	{
-		txtopic_str[i] = field_to_conv[i];
-	}
-	txtopic_str[i] = '\0';
-*/
-	field_to_conv = "unit/tx";//unit_list[unit_index].getMQTTTxTopic();
 	memcpy(txtopic_str, field_to_conv.c_str(), field_to_conv.size());
 	field_to_conv.clear();
 
 	/* MQTT port */
-	port = stoi("1883");//(unit_list[unit_index].getMQTTPort());
-
-	cout << "MQTT INFO: " << endl;
-	cout << id_str << endl;
-	cout << host_str << endl;
-	cout << port << endl;
-	cout << rxtopic_str << endl;
-	cout << txtopic_str << endl;
-	cout << "------------" << endl;
-
+	port = unit_list[unit_index].getMQTTPort();
 
 	mosqpp::lib_init();
 

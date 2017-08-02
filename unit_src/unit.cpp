@@ -72,7 +72,7 @@
 #define UNIT8_THING_DWEET_CODE 			"unit8"
 #define UNIT9_THING_DWEET_CODE 			"unit9"
 
-#define UNIT_THING_DWEET_CODE				UNIT7_THING_DWEET_CODE
+#define UNIT_THING_DWEET_CODE				UNIT1_THING_DWEET_CODE
 
 
 
@@ -181,7 +181,7 @@ void UNIT_showUnitInfo( void )
 /* publish the unit online */
 bool UNIT_publishUnitOnline( void )
 {
-	int i;
+	int i, port;
 	JSON_OBJ obj, cmd_obj, data_obj;
 	string str;
 
@@ -201,10 +201,12 @@ bool UNIT_publishUnitOnline( void )
 	obj.set("status", str);
 	str = unit_sim.getMQTTHost();
 	obj.set("mqtt_host", str);
-	str = unit_sim.getMQTTPort();
-	obj.set("mqtt_port", str);
-	str = unit_sim.getMQTTTopic();
-	obj.set("mqtt_topic", str);
+	port = unit_sim.getMQTTPort();
+	obj.set("mqtt_port", port);
+	str = unit_sim.getMQTTRxTopic();
+	obj.set("mqtt_rxtopic", str);
+	str = unit_sim.getMQTTTxTopic();
+	obj.set("mqtt_txtopic", str);
 
 	/* set available cmds fields */
 	for(i=0; i<unit_sim.getNumOfAvailableCmds(); i++)
@@ -369,50 +371,45 @@ static void startMQTT( void )
 	string field_to_conv;
 	char id_str[MQTT_FIELDS_STRING_MAX_LEN+1];	
 	char host_str[MQTT_FIELDS_STRING_MAX_LEN+1];	
-	char topic_str[MQTT_FIELDS_STRING_MAX_LEN+1];
+	char rxtopic_str[MQTT_FIELDS_STRING_MAX_LEN+1];
+	char txtopic_str[MQTT_FIELDS_STRING_MAX_LEN+1];
+
+	memset(id_str, 0, MQTT_FIELDS_STRING_MAX_LEN+1);
+	memset(host_str, 0, MQTT_FIELDS_STRING_MAX_LEN+1);
+	memset(rxtopic_str, 0, MQTT_FIELDS_STRING_MAX_LEN+1);
+	memset(txtopic_str, 0, MQTT_FIELDS_STRING_MAX_LEN+1);
 
 	/* MQTT UID */
 	field_to_conv = unit_sim.getUID();
-	num = field_to_conv.size();
-	if( num > MQTT_FIELDS_STRING_MAX_LEN )
-		num = MQTT_FIELDS_STRING_MAX_LEN;
-	for(i=0; i<num; i++)
-	{
-		id_str[i] = field_to_conv[i];
-	}
-	id_str[i] = '\0';
+	memcpy(id_str, field_to_conv.c_str(), field_to_conv.size());
+	field_to_conv.clear();
 
 	/* MQTT host */
 	field_to_conv = unit_sim.getMQTTHost();
-	num = field_to_conv.size();
-	if( num > MQTT_FIELDS_STRING_MAX_LEN )
-		num = MQTT_FIELDS_STRING_MAX_LEN;
-	for(i=0; i<num; i++)
-	{
-		host_str[i] = field_to_conv[i];
-	}
-	host_str[i] = '\0';
+	memcpy(host_str, field_to_conv.c_str(), field_to_conv.size());
+	field_to_conv.clear();
 
-	/* MQTT topic */
-	field_to_conv = unit_sim.getMQTTTopic();
-	num = field_to_conv.size();
-	if( num > MQTT_FIELDS_STRING_MAX_LEN )
-		num = MQTT_FIELDS_STRING_MAX_LEN;
-	for(i=0; i<num; i++)
-	{
-		topic_str[i] = field_to_conv[i];
-	}
-	topic_str[i] = '\0';
+	/* MQTT RX topic */
+	field_to_conv = unit_sim.getMQTTRxTopic();
+	memcpy(rxtopic_str, field_to_conv.c_str(), field_to_conv.size());
+	field_to_conv.clear();
+
+	/* MQTT TX topic */
+	field_to_conv = unit_sim.getMQTTTxTopic();
+	memcpy(txtopic_str, field_to_conv.c_str(), field_to_conv.size());
+	field_to_conv.clear();
 
 	/* MQTT port */
-	port = stoi(unit_sim.getMQTTPort());
+	port = unit_sim.getMQTTPort();
 
 	mosqpp::lib_init();
 
+	cout << "START MQTT" << endl;
 	mqtt_instance = new mqtt_mng(	(const char *)id_str, 
 											(const char *)host_str, 
 											port, 
-											(const char *)topic_str);
+											(const char *)rxtopic_str,
+											(const char *)txtopic_str);
 
 	bMQTTIsRunning = true;
 }
@@ -443,14 +440,28 @@ static void dummyExecuteCommand( int cmd_index, string cmd_str, string cmd_value
 		/* if ON */
 		if( cmd_value == "on" )
 		{
-			/* start MQTT */
-			startMQTT();
+			if(false == bMQTTIsRunning)
+			{
+				/* start MQTT */
+				startMQTT();
+			}
+			else
+			{
+				/* do nothing */
+			}
 		}
 		/* else if OFF */
 		else if( cmd_value == "off" )
 		{
-			/* stop MQTT */
-			stopMQTT();
+			if(true == bMQTTIsRunning)
+			{
+				/* stop MQTT */
+				stopMQTT();
+			}
+			else
+			{
+				/* do nothing */
+			}
 		}
 		else
 		{
@@ -478,8 +489,9 @@ static void initUnitInfo( void )
 	unit_sim.setStatus("ACTIVE");			/* fixed at the moment */
 	unit_sim.setOnlineFoundFlag(false);	/* used from leader only */
 	unit_sim.setMQTTHost("test.mosquitto.org");
-	unit_sim.setMQTTPort("1883");
-	unit_sim.setMQTTTopic("unit/test");
+	unit_sim.setMQTTPort(1883);
+	unit_sim.setMQTTRxTopic("unit/rx");
+	unit_sim.setMQTTTxTopic("unit/tx");
 
 	for(j=0; j<unit_cmd_list.size(); j++)
 	{

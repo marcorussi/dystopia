@@ -64,8 +64,9 @@ Unit::Unit()
 	data_update = "";
 	online_found = false;
 	mqttHost = "";
-	mqttPort = "";
-	mqttTopic = "";
+	mqttPort = 0;
+	mqttRxTopic = "";
+	mqttTxTopic = "";
 	available_cmds.clear();
 	cmd_key.clear();
 	cmd_value.clear();

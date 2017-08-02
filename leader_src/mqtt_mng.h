@@ -26,6 +26,10 @@
 #ifndef _MQTT_MNG_H
 #define _MQTT_MNG_H
 
+
+
+
+/* Inclusion files */
 #include <cstdlib>
 #include <cerrno>
 #include <string>
@@ -42,9 +46,15 @@
 #include <mosquittopp.h>
 
 
-#define MQTT_FIELDS_STRING_MAX_LEN			30		/* ATTENTION: maximum of 30 chars */
 
 
+/* Max MQTT fields strings length */
+#define MQTT_FIELDS_STRING_MAX_LEN						30		/* ATTENTION: maximum of 30 chars */
+
+
+
+
+/* class prototype */
 class mqtt_mng : public mosqpp::mosquittopp
 {
 	public:
@@ -58,3 +68,12 @@ class mqtt_mng : public mosqpp::mosquittopp
 };
 
 #endif
+
+
+
+
+/* End of file */
+
+
+
+
