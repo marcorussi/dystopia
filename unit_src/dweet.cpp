@@ -267,6 +267,7 @@ static bool parseJsonGetCmds( string json_to_parse, Unit *unit_info_ref )
 	if(0 == unit_info_ref->getNumOfCmds())
 	{
 		/* last new command date is null */
+		cout << "--- dweet: No previous commands" << endl;
 		last_cmds_date = "";
 	}
 
@@ -299,11 +300,8 @@ static bool parseJsonGetCmds( string json_to_parse, Unit *unit_info_ref )
 									{
 										string date_str = obj3["created"];
 										/* check date */
-										if(date_str > last_cmds_date)
+										if(date_str != last_cmds_date)
 										{
-											/* store creation date */
-											unit_info_ref->setCreationDate(date_str);
-
 											obj4 = obj3["content"];
 											if(Json::OBJECT == obj4.type())
 											{
@@ -312,6 +310,15 @@ static bool parseJsonGetCmds( string json_to_parse, Unit *unit_info_ref )
 												&& (true == obj4.has("priority"))
 												&& (true == obj4.has("cmd")))
 												{
+													cout << "--- dweet: New valid commands found!" << endl;
+
+													if(0==i)	/* the first cmd is the latest one. Refer to it for next cmds auto check */
+													{
+														cout << "--- dweet: Prev. cmd date: " << last_cmds_date << ". New cmd date: " << date_str << endl;
+														/* store cmd creation date */
+														last_cmds_date = date_str;
+													}
+
 													/* ATTENTION: sender fields below are not stored at the moment */
 													string str;
 													/* ATTENTION: sender UID must be a string else a bad cast error will occur */
@@ -332,6 +339,13 @@ static bool parseJsonGetCmds( string json_to_parse, Unit *unit_info_ref )
 													if(Json::OBJECT == obj5.type())	/* ATTENTION: only one command is used at the moment */
 													{
 														vector<string> keys = obj5.keys();
+
+														if(0==i)	/* the first cmd is the latest one. Cancel previous cmds here */
+														{
+															/* clear previous commands first */
+															unit_info_ref->clearCmds();
+														}
+
 														for(j=0; j<keys.size(); j++)
 														{
 															/* store command */

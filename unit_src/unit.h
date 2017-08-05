@@ -67,6 +67,8 @@ extern void UNIT_showDataValues				( void );
 extern bool UNIT_setAndPublishDataValue	( int, string );
 extern bool UNIT_bIsMQTTRunning				( void );
 extern void UNIT_manageMQTTLoop				( void );
+extern void UNIT_stopMQTT						( void );
+extern void UNIT_sendMQTTMessage				( const char * );
 
 
 

@@ -48,6 +48,8 @@
 #include <memory>
 #include <initializer_list>
 
+#include <thread>
+
 #include <functional>
 #include <chrono>
 #include <future>
@@ -69,6 +71,9 @@
 
 
 using namespace std;
+
+using namespace std::this_thread; 	// sleep_for, sleep_until
+using namespace std::chrono; 			// nanoseconds, system_clock, seconds
 
 
 
@@ -167,12 +172,16 @@ static const string cmd_list[MAX_NUM_OF_CLI_COMMANDS] =
 
 
 /* Indicate if auto command check is enabled */
-static bool auto_cmd_running = false;
+static volatile bool auto_cmd_running = false;
 
 
 /* Indicate when a command auto check request is ready to go
 	ATTENTION: Start as false. A first call will be executed anyway when the callack is enabled */
 static volatile bool auto_cmd_go = false;
+
+
+/* true if end program cli command is received */
+static volatile bool end_prog = false;
 
 
 /* Store periodic callback info */
@@ -187,6 +196,9 @@ static void	auto_cmd_cb_func			( void );
 static int	convertStrNum				( string );
 static int	getCliCmdIndex				( string );
 static bool	getCliCmdAndExecuteIt	( void );
+static void mainMqttLoop				( void );
+static void mainAutoCmdLoop			( void );
+static void mainCliLoop					( void );
 
 
 
@@ -368,24 +380,26 @@ static bool getCliCmdAndExecuteIt( void )
 }
 
 
-
-
-/* --------------- main loop ----------- */
-
-int main(int argc, char *argv[])
+/* main MQTT loop */
+static void mainMqttLoop( void ) 
 {
-/*
-	if(argc < 2) 
+	while(end_prog != true)
 	{
-   	cerr << "VERTEX: error -> insert URL" << endl;
-		return EXIT_FAILURE;
+		if(true == UNIT_bIsMQTTRunning())
+		{
+			UNIT_manageMQTTLoop();
+		}
+		else
+		{
+			/* do nothing */
+		}
 	}
+}
 
-	char *url = argv[1];
-*/
 
-	bool end_prog = false;
-
+/* main Auto commands check loop */
+static void mainAutoCmdLoop( void ) 
+{
 	while(end_prog != true)
 	{
 		/* if command auto check is enabled and ready to go */
@@ -395,7 +409,7 @@ int main(int argc, char *argv[])
 			{
 				/* clear stored commands before checking new ones */
 				/* ATTENTION: previous commands are cleared in the dweet module before getting the new ones */
-				UNIT_clearCmds();
+				//UNIT_clearCmds();
 
 				/* get and manage new commands */
 				UNIT_getAndManageNewCmds();
@@ -412,19 +426,83 @@ int main(int argc, char *argv[])
 		}
 		else
 		{
-			/* If MQTT is running */
-			if(true == UNIT_bIsMQTTRunning())
+			/* do nothing */	
+		}
+	}
+}
+
+
+/* main CLI loop */
+static void mainCliLoop( void )
+{
+	while(end_prog != true)
+	{
+		if(true == UNIT_bIsMQTTRunning())
+		{
+			string input, cmd_str;
+			/* get input data */
+			getline(cin, input);
+			/* check escape sequence to stop MQTT */
+			if(input == "---")
 			{
-				/* manage MQTT loop through unit module */
-				UNIT_manageMQTTLoop();	
+				UNIT_stopMQTT();
 			}
 			else
+			{
+				UNIT_sendMQTTMessage(input.c_str());
+			}
+		}
+		else
+		{
+			/* if command auto check is disabled */
+			if(false == auto_cmd_running)
 			{
 				/* wait until cli command input is inserted and execute it */
 				end_prog = getCliCmdAndExecuteIt();
 			}
+			else
+			{
+				/* do nothing */
+			}
 		}
 	}
+}
+
+
+
+
+/* -------------- main lopp --------------- */
+
+int main(int argc, char *argv[])
+{
+/*
+	if(argc < 2) 
+	{
+   	cerr << "VERTEX: error -> insert URL" << endl;
+		return EXIT_FAILURE;
+	}
+
+	char *url = argv[1];
+*/
+
+	/* init first task */
+	thread task1(mainCliLoop);
+
+	/* init second task */
+	thread task2(mainMqttLoop);
+
+	/* init third task */
+	thread task3(mainAutoCmdLoop);
+
+	/* join first task */
+	task1.join();
+
+	/* join second task */
+	task2.join();
+
+	/* join third task */
+	task3.join();
+
 
 	return EXIT_SUCCESS;
 }

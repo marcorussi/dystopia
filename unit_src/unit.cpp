@@ -237,11 +237,16 @@ void UNIT_getAndManageNewCmds( void )
 	/* get new commands */
 	if(true == UNIT_getLatestCmds())
 	{
-		/* ATTENTION: execution means show commands and it is done immediately */
+		/* ATTENTION: MQTT cmd is the only executed command. Others are shown only. */
+#if 0
 		for(idx=0; idx<unit_sim.getNumOfCmds(); idx++)
 		{
 			dummyExecuteCommand(idx, unit_sim.getCmdKey(idx), unit_sim.getCmdValue(idx));
 		}
+#else
+		/* ATTENTION: only the first one in the array (which is the last received one) is executed at the moment */
+		dummyExecuteCommand(0, unit_sim.getCmdKey(0), unit_sim.getCmdValue(0));
+#endif
 	}
 	else
 	{
@@ -360,6 +365,27 @@ void UNIT_manageMQTTLoop( void )
 }	
 
 
+/* stop MQTT */
+void UNIT_stopMQTT( void )
+{
+	stopMQTT();
+}
+
+
+/* send MQTT message */
+void UNIT_sendMQTTMessage( const char *message )
+{
+	if(true == bMQTTIsRunning)
+	{
+		mqtt_instance->send_msg(message);
+	}
+	else
+	{
+		/* dicard the request */
+	}
+}
+
+
 
 
 /* ------------- local functions ------------- */
@@ -418,9 +444,15 @@ static void startMQTT( void )
 /* stop MQTT */
 static void stopMQTT( void )
 {
+	/* !!!!! ATTENTION !!!!! */
+	/* this cleanup call seems to clear/delete/free something in the SSL library.
+		So, next https request will fail (segmentation fault). 
+		This is evident when auto check is enaled. */
 	mosqpp::lib_cleanup();
 
 	bMQTTIsRunning = false;
+
+	cout << "MQTT stopped!" << endl;
 }
 
 
