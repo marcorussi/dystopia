@@ -25,9 +25,8 @@
 /* file: unit.cpp */
 
 /* TODO: 
-1 - implement a dedicated command structure to store all command info
-2 - when a data value is updated, the timestamp is valid only for it but other values previously updated could be out of date
-3 - consider to implement more than one unit 
+1 - when a data value is updated, the timestamp is valid only for it but other values previously updated could be out of date
+2 - consider to implement more than one unit 
 */
 
 

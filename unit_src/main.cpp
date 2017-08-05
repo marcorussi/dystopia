@@ -24,11 +24,6 @@
 
 /* file: main.cpp */
 
-/* TODO: 
-1 - when a data value is updated, the timestamp is valid only for it but other values previously updated could be out of date
-2 - implement more than one unit 
-*/
-
 
 /* ---------------- inclusion files ------------- */
 

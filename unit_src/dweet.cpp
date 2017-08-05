@@ -25,11 +25,6 @@
 /* file: dweet.cpp */
 
 
-/* TODO:
- - 1) store sender cmds fields 
-*/
-
-
 /* ---------- Inclusions files --------- */
 #include "dweet.h"
 
