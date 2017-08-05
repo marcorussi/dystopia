@@ -101,15 +101,21 @@ Example of request URL and related JSON structure:
 
 
 **Dependencies**
+
 curlpp and mosquitto client libraries needed.
 
+
 **TODO**
+
 Check source files for related TODO lists.
 
+
 **Known Issues**
+
 Leader: In case of same unit published several time the leader will discover it as several different units.
 
 Unit: After MQTT cleanup call the SSL library is freed/cleaned so any consecutive HTTPS request will fail with a crash (segmentation fault). This is evident with auto-check command function enabled and MQTT is turned on and the off (by a leader).
+
 
 **WORK IN PROGRESS...**
 
