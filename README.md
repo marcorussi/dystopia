@@ -1,9 +1,11 @@
 # dystopia
-Leader and unit sides for managing connected devices over dweet.io JSON API. Work in progress...
+*Leader* and *unit* sides for managing connected devices over dweet.io JSON API.
+Command line interface (CLI) is used for all functionalities. The unit has a auto-check feature for retrieving commands periodically.
+Work in progress...
 
 A known and fixed *thing* field value (UID) is used by many units to publish their data over *dweet.io*. A request on this value will result in a list of all available units. Indeed, this value is used by a leader as a collector for obtaining info of all the units. 
 
-A unit publish its info on *dweet.io* on a fixed UID (such as "unit7") with a specific JSON structure. Among this info fields there are two special values (*cmd_uid* and *data_uid*) that can be used for sending commands and obtaining data info with other two dedicated JSON structures. These two values are used as *thing* field in the request URL.
+A unit publish its info on *dweet.io* on a fixed UID (such as "unit7") with a specific JSON structure. Among this info fields there are two special values (*cmd_uid* and *data_uid*) that can be used for sending commands and obtaining data info with other two dedicated JSON structures. These two values are used as *thing* field in the request URL. Be aware that these fields values and others are fixed in the code at the moment, in case of multiple units, they will have the same values! Modify them for each unit if necessary.
  
 The leader side can discover for any available online units by a request on the known UID (of course both leader and units must share this value). The the leader side uses the specific cmd_uid and the data_uid of each unit to respectively send commands and read data. Available commands and data are listed in the info structure of each unit.
 
@@ -99,6 +101,11 @@ Example of request URL and related JSON structure:
 }
 ```
 
+**Use**
+
+Follow command line prompted instructions. 
+NOTE: The unit must publish first (CLI command *pu*). The leader must discover any available unit first (*du*). 
+
 
 **Dependencies**
 
@@ -115,6 +122,8 @@ Check source files for related TODO lists.
 Leader: In case of same unit published several time the leader will discover it as several different units.
 
 Unit: After MQTT cleanup call the SSL library is freed/cleaned so any consecutive HTTPS request will fail with a crash (segmentation fault). This is evident with auto-check command function enabled and MQTT is turned on and the off (by a leader).
+
+Both sides: the CLI is fragile with any wrongly used command!
 
 
 **WORK IN PROGRESS...**
